@@ -1,7 +1,7 @@
 # Context Ledger — 클라우드 비용 리포팅 자동화
 
-> **최종 업데이트**: 2026-04-06 by 03-design-reviewer
-> **현재 단계**: 설계 리뷰 조건부 승인 → 프로토타이퍼 대기
+> **최종 업데이트**: 2026-04-06 by 04-prototyper
+> **현재 단계**: ④ 프로토타입 완료 → 사용자 컨펌 대기
 > **파이프라인 상태**: 정상
 
 ---
@@ -74,8 +74,8 @@
 | ① 설계 | ✅ | Architect | 2026-04-06 | 2026-04-06 | v1.2 — QA 회귀 9건 전수 반영 완료 |
 | ② 설계 QA | ✅ | Design QA | 2026-04-06 | 2026-04-06 | 재QA PASS — Major 1 / Minor 3 (신규), 이전 9건 전수 해소 |
 | ③ 설계 리뷰 | ✅ | Design Reviewer | 2026-04-06 | 2026-04-06 | 조건부 승인 — Major 1 (DQA-010 batch_id), Minor 4 |
-| ④ 프로토타입 | ⏳ | Prototyper | | | 다음 단계 |
-| ④-a 사용자 컨펌 | ⏳ | (사용자) | | | |
+| ④ 프로토타입 | ✅ | Prototyper | 2026-04-06 | 2026-04-06 | 5개 화면 + GNB + 모달 구현 완료 |
+| ④-a 사용자 컨펌 | 🔄 | (사용자) | 2026-04-06 | | 브라우저 확인 후 피드백 대기 |
 | ⑤ 프로토타입 QA | ⏳ | Prototype QA | | | |
 | ⑥ 프로토타입 리뷰 | ⏳ | Prototype Reviewer | | | |
 | ⑦ 구현 | ⏳ | Builder | | | |
@@ -96,6 +96,7 @@
 | 3 | ① 설계 (회귀) → ② 설계 QA | 회귀 반영 완료 | DQA-001~009 전수 반영 + 원본 FR ID·파레토·NFR-05 반영 → 재QA 대기 |
 | 4 | ② 설계 QA (재) → ③ 설계 리뷰 | 정방향 | 재QA PASS — 이전 9건 해소, 신규 Major 1 / Minor 3 |
 | 5 | ③ 설계 리뷰 → ④ 프로토타입 | 정방향 (조건부 승인) | DQA-010 batch_id nullable 처리 조건, Minor 3건 정리 권고 |
+| 6 | ④ 프로토타입 → ④-a 사용자 컨펌 | 정방향 | 5개 화면 구현 완료, 사용자 컨펌 대기 |
 
 ---
 
@@ -129,6 +130,12 @@
 | 설계 QA 보고서 | qa/design/design-qa-report.md | v2.0 | 02-design-qa | 2026-04-06 |
 | 설계 리뷰 판정 | review/design/verdict.md | v1.0 | 03-design-reviewer | 2026-04-06 |
 | 설계 리뷰 피드백 | review/design/feedback.md | v1.0 | 03-design-reviewer | 2026-04-06 |
+| 프로토타입 화면 목록 | prototype/screen-inventory.md | v1.0 | 04-prototyper | 2026-04-06 |
+| 프로토타입 UX 결정 | prototype/ux-decisions.md | v1.0 | 04-prototyper | 2026-04-06 |
+| 프로토타입 HTML | dev/index.html | v1.0 | 04-prototyper | 2026-04-06 |
+| 프로토타입 스타일 | dev/styles.css | v1.0 | 04-prototyper | 2026-04-06 |
+| 프로토타입 앱 로직 | dev/app.js | v1.0 | 04-prototyper | 2026-04-06 |
+| 프로토타입 더미 데이터 | dev/data.js | v1.0 | 04-prototyper | 2026-04-06 |
 
 ---
 
@@ -146,6 +153,9 @@
 | 2026-04-06 | 01-architect | 로컬 볼륨 + 추상화 레이어 | OPEN-006 — MVP 단계 | 파일 스토리지 |
 | 2026-04-06 | 01-architect | iText PDF 라이브러리 | OPEN-007 — TRD 기반 | PDF Generator |
 | 2026-04-06 | 01-architect | JavaMailSender 추상화 | OPEN-008 — 구현 유연성 | 이메일 발송 |
+| 2026-04-06 | 04-prototyper | Vanilla JS + 해시 라우팅 채택 | 빌드 도구 없이 npx serve 즉시 실행 가능 | 프로토타입 구조 |
+| 2026-04-06 | 04-prototyper | 로그인/관리자 화면 미구현 | 핵심 5개 화면 집중, ROLE_OPS 하드코딩 | 프로토타입 범위 |
+| 2026-04-06 | 04-prototyper | DQA-010 batch_id nullable 반영 | 더미 데이터에서 batch_id 제외, yearMonth 기반 | 데이터 모델 |
 | 2026-04-06 | 01-architect | 12개 엔티티 데이터 모델 | BRD/TRD 분석 결과 | DB 설계 전체 |
 | 2026-04-06 | 01-architect | 35개 REST API 엔드포인트 | 기능 분해 + RBAC | 백엔드 전체 |
 | 2026-04-06 | 01-architect | 원본 FR ID 체계 도입 (FR-01~05, NFR-01~06) | 원본 CLOUD-REQ-001 추적성 확보 | BRD, 기능분해표 |
@@ -165,6 +175,7 @@
 | CH-005 | 2026-04-06 | QA 회귀 DQA-001~009 전수 반영: COST_DATA 엔티티, 대시보드 기능분해, 배치선택로직, 컴포넌트Props, Phase2, 비밀번호API, 상태관리 | 01-architect (QA 회귀) | data-model(v1.2), feature-decomposition(v1.1), component-spec(v1.1), api-spec, dummy-data-spec | 완료 |
 | CH-006 | 2026-04-06 | 설계 QA 재검토 — PASS 판정 (이전 9건 해소, 신규 Major 1 / Minor 3) | 02-design-qa | qa/design/design-qa-report.md(v2.0) | 완료 |
 | CH-007 | 2026-04-06 | 설계 리뷰 — 조건부 승인 (DQA-010 batch_id nullable 조건, Minor 4건) | 03-design-reviewer | review/design/verdict.md, feedback.md | 완료 |
+| CH-008 | 2026-04-06 | 프로토타입 구현 — 5개 화면(대시보드/업로드/리포트/리포트상세/구독관리) + GNB + 모달, Shinhan DS 적용, ECharts/AG Grid 적용 | 04-prototyper | dev/*, prototype/* | 완료 |
 
 ---
 
@@ -192,6 +203,7 @@
 | 2026-04-06 | 02-design-qa | 01-architect | QA즉시회귀 | qa/design/design-qa-report.md | Critical 1건(COST_DATA 누락) + High 2건 — 상세는 QA 보고서 참조 |
 | 2026-04-06 | 02-design-qa | 03-design-reviewer | 정방향 | qa/design/design-qa-report.md(v2.0) | 재QA PASS — Major 1(DQA-010 batch_id), Minor 3(번호 중복) |
 | 2026-04-06 | 03-design-reviewer | 04-prototyper | 조건부 승인 | review/design/*, design/*, docs/brd.md, docs/context-ledger.md | 조건부 승인 — DQA-010 batch_id nullable 처리, 섹션 번호 정리, Shinhan Web Design System + ECharts + AG Grid 적용 |
+| 2026-04-06 | 04-prototyper | (사용자) | 컨펌 요청 | dev/*, prototype/*, docs/context-ledger.md | 프로토타입 5개 화면 구현 완료, 브라우저 확인 후 피드백 요청 |
 
 ---
 

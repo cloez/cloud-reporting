@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Cloud Cost Reporting — 프로토타입</title>
+
+  <!-- Shinhan 디자인 시스템 스타일 -->
+  <link rel="stylesheet" href="styles.css" />
+
+  <!-- Apache ECharts (CDN) — 차트 라이브러리 (변경 금지) -->
+  <script src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js"></script>
+
+  <!-- AG Grid Community (CDN) — 그리드 라이브러리 (변경 금지) -->
+  <script src="https://cdn.jsdelivr.net/npm/ag-grid-community@31/dist/ag-grid-community.min.js"></script>
+
+  <!-- ExcelJS — 스타일 포함 Excel 익스포트용 -->
+  <script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
+  <!-- FileSaver — 브라우저 다운로드 트리거 -->
+  <script src="https://cdn.jsdelivr.net/npm/file-saver@2.0.5/dist/FileSaver.min.js"></script>
+
+  <!-- 파비콘 (인라인 SVG) -->
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%230046FF'/><text x='16' y='22' text-anchor='middle' fill='white' font-size='18' font-family='sans-serif' font-weight='bold'>C</text></svg>" />
+</head>
+<body>
+  <div id="app"></div>
+
+  <!-- 더미 데이터 -->
+  <script src="data.js"></script>
+  <!-- 메인 앱 -->
+  <script src="app.js"></script>
+</body>
+</html>

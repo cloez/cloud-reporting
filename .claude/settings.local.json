@@ -1,0 +1,6 @@
+{
+  "project": "cloud-cost-reporting",
+  "description": "클라우드 비용 리포팅 자동화 웹 애플리케이션",
+  "language": "ko",
+  "defaultAgent": "agents/01-architect.md"
+}

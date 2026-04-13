@@ -1766,7 +1766,7 @@ function openCurModal(mode, id) {
 
   const title = mode === 'create' ? '컬럼 추가' : '컬럼 수정';
   const categories = [...new Set(CUR_COLUMNS.map(c => c.columnCategory))];
-  const dataTypes = ['string', 'String', 'double', 'timestamp', 'map <string, string>', 'map <string, double>'];
+  const dataTypes = ['string', 'double', 'timestamp', 'map <string, string>', 'map <string, double>'];
 
   modal.innerHTML = `
     <div class="modal-header">

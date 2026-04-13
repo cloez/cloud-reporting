@@ -4,9 +4,9 @@
     {
       "name": "prototype",
       "runtimeExecutable": "npx",
-      "runtimeArgs": ["serve", "./dev"],
-      "port": 3000,
-      "autoPort": true
+      "runtimeArgs": ["serve", "./dev", "-l", "3030"],
+      "port": 3030,
+      "autoPort": false
     }
   ]
 }

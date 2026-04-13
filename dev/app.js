@@ -210,6 +210,7 @@ const gridIdMap = {
   uploadHistory: 'grid-upload-history',
   subscribers: 'grid-subscribers',
   subLogs: 'grid-sub-logs',
+  curColumns: 'grid-cur-columns',
 };
 
 // ── 헤더 우클릭 컬럼 선택 메뉴 ──
@@ -420,6 +421,7 @@ const routes = {
   '#/upload': renderUpload,
   '#/reports': renderReports,
   '#/subscriptions': renderSubscriptions,
+  '#/settings/cur-columns': renderCurColumns,
 };
 
 function navigate(hash) {
@@ -504,9 +506,23 @@ function renderGNB() {
             <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"></path><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"></path></svg>
             <span class="gnb-badge"></span>
           </button>
+          ${user.roles.includes('ROLE_ADMIN') ? `
+          <div class="gnb-settings-wrap" id="gnb-settings-wrap">
+            <button class="gnb-icon-btn" title="환경설정" onclick="toggleSettingsMenu(event)">
+              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+            </button>
+            <div class="settings-dropdown" id="settings-dropdown" style="display:none;">
+              <button class="user-dropdown-item" onclick="navigate('#/settings/cur-columns');closeSettingsMenu();">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v18"></path><rect width="18" height="18" x="3" y="3" rx="2"></rect><path d="M3 9h18"></path><path d="M3 15h18"></path></svg>
+                CUR 컬럼 관리
+              </button>
+            </div>
+          </div>
+          ` : `
           <button class="gnb-icon-btn" title="설정">
             <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"></path><circle cx="12" cy="12" r="3"></circle></svg>
           </button>
+          `}
           <div class="gnb-user" id="gnb-user-btn" onclick="toggleUserDropdown(event)">
             <div class="gnb-user-text">
               <span class="gnb-user-name">${user.name} 님</span>
@@ -578,6 +594,25 @@ function renderGNB() {
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"></path><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"></path></svg>
             구독 관리
           </a>
+
+          ${user.roles.includes('ROLE_ADMIN') ? `
+          <!-- 환경설정 (관리자 전용 드롭다운) -->
+          <div class="gnb-tab-group">
+            <button class="gnb-tab" data-route="#/settings/cur-columns" onclick="navigate('#/settings/cur-columns')">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+              환경설정
+              <svg class="gnb-chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"></path></svg>
+            </button>
+            <div class="gnb-dropdown" id="menu-settings">
+              <div class="gnb-dropdown-inner">
+                <a class="gnb-dropdown-item" data-route="#/settings/cur-columns" onclick="navigate('#/settings/cur-columns');return false;" href="#/settings/cur-columns">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v18"></path><rect width="18" height="18" x="3" y="3" rx="2"></rect><path d="M3 9h18"></path><path d="M3 15h18"></path></svg>
+                  CUR 컬럼 관리
+                </a>
+              </div>
+            </div>
+          </div>
+          ` : ''}
         </div>
       </div>
     </nav>
@@ -1546,6 +1581,302 @@ function deleteSubscriber(id) {
 }
 
 // ══════════════════════════════════════════
+// 6. 환경설정 — CUR 컬럼 관리
+// ══════════════════════════════════════════
+
+// 환경설정 드롭다운 토글
+function toggleSettingsMenu(e) {
+  e.stopPropagation();
+  const dropdown = document.getElementById('settings-dropdown');
+  if (!dropdown) return;
+  const isVisible = dropdown.style.display !== 'none';
+  if (isVisible) {
+    closeSettingsMenu();
+  } else {
+    dropdown.style.display = 'block';
+    setTimeout(() => {
+      document.addEventListener('click', closeSettingsMenuHandler);
+    }, 10);
+  }
+}
+
+function closeSettingsMenu() {
+  const dropdown = document.getElementById('settings-dropdown');
+  if (dropdown) dropdown.style.display = 'none';
+  document.removeEventListener('click', closeSettingsMenuHandler);
+}
+
+function closeSettingsMenuHandler(e) {
+  if (!e.target.closest('#gnb-settings-wrap')) {
+    closeSettingsMenu();
+  }
+}
+
+// CUR 컬럼 관리 화면
+let curGridApi = null;
+let curShowDeleted = false;
+
+function renderCurColumns(el) {
+  // 관리자 권한 확인
+  if (!CURRENT_USER.roles.includes('ROLE_ADMIN')) {
+    el.innerHTML = `<div class="empty-state"><div class="empty-state-icon">🔒</div><div class="empty-state-text">접근 권한이 없습니다</div><div class="empty-state-hint">관리자만 이용할 수 있습니다</div></div>`;
+    return;
+  }
+
+  // 카테고리 목록 추출
+  const categories = [...new Set(CUR_COLUMNS.map(c => c.columnCategory))];
+
+  el.innerHTML = `
+    <div class="page-header">
+      <h1 class="page-title">CUR 컬럼 관리</h1>
+      <p class="page-desc">AWS CUR2 컬럼 사전을 관리합니다. 컬럼의 추가·수정·삭제가 가능합니다.</p>
+    </div>
+
+    <div class="section-card">
+      <div class="cur-toolbar">
+        <div class="cur-toolbar-left">
+          <select class="cur-filter-select" id="cur-category-filter" onchange="filterCurGrid()">
+            <option value="">전체 카테고리</option>
+            ${categories.map(c => `<option value="${c}">${c}</option>`).join('')}
+          </select>
+          <input class="cur-search-input" id="cur-search" type="text" placeholder="컬럼명, 한글명, 설명 검색..." oninput="filterCurGrid()" />
+          <label class="cur-toggle-deleted">
+            <input type="checkbox" id="cur-show-deleted" onchange="curShowDeleted=this.checked;filterCurGrid();" />
+            삭제 포함
+          </label>
+        </div>
+        <div class="cur-toolbar-right">
+          <button class="btn btn-primary btn-sm" onclick="openCurModal('create')">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14"></path><path d="M5 12h14"></path></svg>
+            추가
+          </button>
+        </div>
+      </div>
+      <div id="grid-cur-columns" class="ag-theme-alpine" style="width:100%;height:520px;"></div>
+      <div id="cur-grid-toolbar"></div>
+    </div>
+  `;
+
+  initCurGrid();
+}
+
+function initCurGrid() {
+  const columnDefs = [
+    { headerName: 'ID', field: 'id', width: 60, hide: true },
+    { headerName: '카테고리', field: 'columnCategory', width: 130,
+      cellRenderer: (p) => {
+        const colors = { bill:'#0046FF', costCategory:'#0076FF', capacityReservation:'#002D85', discount:'#FF4D4F', identity:'#00C07F', lineItem:'#FFB300', pricing:'#4D8AFF', product:'#99B8FF', reservation:'#E64548', resourceTags:'#00865A', savingsPlan:'#CF1322', splitLineItem:'#91CAFF', tags:'#4D4D4D' };
+        const color = colors[p.value] || '#4D4D4D';
+        return `<span style="display:inline-block;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;background:${color}15;color:${color};">${p.value}</span>`;
+      }
+    },
+    { headerName: '컬럼명', field: 'columnName', width: 280, tooltipField: 'columnName' },
+    { headerName: '한글명', field: 'columnKoName', width: 200, tooltipField: 'columnKoName' },
+    { headerName: '데이터 타입', field: 'dataType', width: 130 },
+    { headerName: 'Nullable', field: 'nullability', width: 100,
+      cellRenderer: (p) => p.value ? `<span style="color:var(--color-warning);font-weight:600;">${p.value}</span>` : '-'
+    },
+    { headerName: '설명', field: 'description', flex: 1, minWidth: 200, tooltipField: 'description' },
+    { headerName: '등록일', field: 'createdAt', width: 110,
+      valueFormatter: (p) => p.value ? p.value.substring(0, 10).replace(/-/g, '.') : '-'
+    },
+    { headerName: '삭제', field: 'isDeleted', width: 70, hide: true,
+      cellRenderer: (p) => p.value ? '<span style="color:var(--color-error);">삭제</span>' : ''
+    },
+    { headerName: '관리', width: 120, sortable: false, filter: false, pinned: 'right',
+      cellRenderer: (p) => {
+        const isDeleted = p.data.isDeleted;
+        if (isDeleted) {
+          return `<button class="btn btn-sm btn-secondary" onclick="restoreCurColumn(${p.data.id})" style="font-size:11px;">복원</button>`;
+        }
+        return `<button class="btn btn-sm btn-secondary" onclick="openCurModal('edit',${p.data.id})" style="font-size:11px;margin-right:4px;">수정</button><button class="btn btn-sm btn-danger" onclick="deleteCurColumn(${p.data.id})" style="font-size:11px;">삭제</button>`;
+      }
+    },
+  ];
+
+  const gridOptions = {
+    columnDefs,
+    rowData: CUR_COLUMNS.filter(c => !c.isDeleted),
+    defaultColDef: {
+      sortable: true, resizable: true, suppressMovable: false,
+      wrapHeaderText: true, autoHeaderHeight: true,
+    },
+    pagination: true,
+    paginationPageSize: getSavedPageSize('curColumns', 20),
+    rowHeight: 40,
+    headerHeight: 42,
+    tooltipShowDelay: 300,
+    getRowClass: (p) => p.data.isDeleted ? 'row-deleted' : '',
+    onGridReady: (params) => {
+      curGridApi = params.api;
+      gridInstances['curColumns'] = params.api;
+      bindGridPagination('curColumns');
+      // 툴바
+      const toolbarEl = document.getElementById('cur-grid-toolbar');
+      if (toolbarEl) {
+        const total = CUR_COLUMNS.filter(c => !c.isDeleted).length;
+        toolbarEl.innerHTML = renderGridToolbar('curColumns', 'CUR_컬럼사전', total, getSavedPageSize('curColumns', 20));
+      }
+    },
+  };
+
+  const gridEl = document.getElementById('grid-cur-columns');
+  if (gridEl) {
+    agGrid.createGrid(gridEl, gridOptions);
+  }
+}
+
+// 필터링
+function filterCurGrid() {
+  if (!curGridApi) return;
+  const category = document.getElementById('cur-category-filter')?.value || '';
+  const search = (document.getElementById('cur-search')?.value || '').toLowerCase();
+
+  let filtered = CUR_COLUMNS.filter(c => {
+    if (!curShowDeleted && c.isDeleted) return false;
+    if (category && c.columnCategory !== category) return false;
+    if (search) {
+      return c.columnName.toLowerCase().includes(search)
+        || c.columnKoName.toLowerCase().includes(search)
+        || c.description.toLowerCase().includes(search);
+    }
+    return true;
+  });
+
+  curGridApi.setGridOption('rowData', filtered);
+
+  // 툴바 업데이트
+  const toolbarEl = document.getElementById('cur-grid-toolbar');
+  if (toolbarEl) {
+    toolbarEl.innerHTML = renderGridToolbar('curColumns', 'CUR_컬럼사전', filtered.length, curGridApi.paginationGetPageSize());
+  }
+}
+
+// CUR 컬럼 추가/수정 모달
+function openCurModal(mode, id) {
+  const overlay = document.getElementById('modal-overlay');
+  const modal = document.getElementById('modal-content');
+  modal.className = 'modal cur-modal';
+
+  let data = { columnCategory: '', columnName: '', columnKoName: '', description: '', dataType: 'string', nullability: '', properties: '' };
+  if (mode === 'edit' && id) {
+    const found = CUR_COLUMNS.find(c => c.id === id);
+    if (found) data = { ...found };
+  }
+
+  const title = mode === 'create' ? '컬럼 추가' : '컬럼 수정';
+  const categories = [...new Set(CUR_COLUMNS.map(c => c.columnCategory))];
+  const dataTypes = ['string', 'String', 'double', 'timestamp', 'map <string, string>', 'map <string, double>'];
+
+  modal.innerHTML = `
+    <div class="modal-header">
+      <h2 class="modal-title">${title}</h2>
+      <button class="modal-close" onclick="closeModal()">&times;</button>
+    </div>
+    <div class="cur-form-row">
+      <div class="form-group">
+        <label class="form-label">카테고리 *</label>
+        <select class="form-select" id="cur-f-category">
+          <option value="">선택</option>
+          ${categories.map(c => `<option value="${c}" ${data.columnCategory === c ? 'selected' : ''}>${c}</option>`).join('')}
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">데이터 타입 *</label>
+        <select class="form-select" id="cur-f-dataType">
+          ${dataTypes.map(t => `<option value="${t}" ${data.dataType === t ? 'selected' : ''}>${t}</option>`).join('')}
+        </select>
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">컬럼명 (영문, camelCase) *</label>
+      <input class="form-input" id="cur-f-columnName" value="${data.columnName}" placeholder="예: lineItemUsageAmount" />
+    </div>
+    <div class="form-group">
+      <label class="form-label">한글명 *</label>
+      <input class="form-input" id="cur-f-columnKoName" value="${data.columnKoName}" placeholder="예: 라인항목_사용량수량" />
+    </div>
+    <div class="form-group">
+      <label class="form-label">설명</label>
+      <textarea class="form-textarea" id="cur-f-description" placeholder="컬럼에 대한 상세 설명">${data.description}</textarea>
+    </div>
+    <div class="cur-form-row">
+      <div class="form-group">
+        <label class="form-label">Nullability</label>
+        <input class="form-input" id="cur-f-nullability" value="${data.nullability}" placeholder="예: Nullable" />
+      </div>
+      <div class="form-group">
+        <label class="form-label">속성</label>
+        <input class="form-input" id="cur-f-properties" value="${data.properties}" placeholder="예: Added by: ..." />
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal()">취소</button>
+      <button class="btn btn-primary" onclick="saveCurColumn('${mode}', ${id || 0})">${mode === 'create' ? '추가' : '저장'}</button>
+    </div>
+  `;
+
+  overlay.classList.add('active');
+  setTimeout(() => document.getElementById('cur-f-columnName')?.focus(), 200);
+}
+
+// CUR 컬럼 저장
+function saveCurColumn(mode, id) {
+  const category = document.getElementById('cur-f-category').value;
+  const columnName = document.getElementById('cur-f-columnName').value.trim();
+  const columnKoName = document.getElementById('cur-f-columnKoName').value.trim();
+  const description = document.getElementById('cur-f-description').value.trim();
+  const dataType = document.getElementById('cur-f-dataType').value;
+  const nullability = document.getElementById('cur-f-nullability').value.trim();
+  const properties = document.getElementById('cur-f-properties').value.trim();
+
+  // 필수 필드 검증
+  if (!category) { showToast('error', '카테고리를 선택해 주세요'); return; }
+  if (!columnName) { showToast('error', '컬럼명을 입력해 주세요'); return; }
+  if (!columnKoName) { showToast('error', '한글명을 입력해 주세요'); return; }
+
+  if (mode === 'create') {
+    const newId = Math.max(...CUR_COLUMNS.map(c => c.id)) + 1;
+    CUR_COLUMNS.push({
+      id: newId, columnCategory: category, columnName, columnKoName,
+      description, dataType, nullability, properties,
+      createdAt: new Date().toISOString().substring(0, 19),
+      isDeleted: false,
+    });
+    showToast('success', `${columnKoName} 컬럼을 추가했습니다`);
+  } else {
+    const item = CUR_COLUMNS.find(c => c.id === id);
+    if (item) {
+      Object.assign(item, { columnCategory: category, columnName, columnKoName, description, dataType, nullability, properties });
+      showToast('success', `${columnKoName} 컬럼을 수정했습니다`);
+    }
+  }
+
+  closeModal();
+  filterCurGrid();
+}
+
+// 소프트 삭제
+function deleteCurColumn(id) {
+  const item = CUR_COLUMNS.find(c => c.id === id);
+  if (!item) return;
+  if (confirm(`${item.columnKoName} 컬럼을 삭제하시겠어요?`)) {
+    item.isDeleted = true;
+    showToast('success', `${item.columnKoName} 컬럼을 삭제했습니다`);
+    filterCurGrid();
+  }
+}
+
+// 복원
+function restoreCurColumn(id) {
+  const item = CUR_COLUMNS.find(c => c.id === id);
+  if (!item) return;
+  item.isDeleted = false;
+  showToast('success', `${item.columnKoName} 컬럼을 복원했습니다`);
+  filterCurGrid();
+}
+
+// ══════════════════════════════════════════
 // 로그인 페이지
 // ══════════════════════════════════════════
 function renderLoginPage() {
@@ -1580,6 +1911,14 @@ function renderLoginPage() {
           </div>
           <button type="submit" class="login-btn" id="login-btn" ${lockedUntil ? 'disabled' : ''}>로그인</button>
         </form>
+        <div class="login-test-accounts">
+          <div class="login-test-title">테스트 계정 (비밀번호: 아무 값)</div>
+          <div class="login-test-list">
+            <span class="login-test-item"><b>kimops</b> Cloud Ops</span>
+            <span class="login-test-item"><b>admin</b> 관리자</span>
+            <span class="login-test-item"><b>parkview</b> 경영진</span>
+          </div>
+        </div>
       </div>
     </div>
     <div class="toast-container" id="toast-container"></div>

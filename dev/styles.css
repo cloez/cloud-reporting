@@ -713,7 +713,7 @@ a:hover { text-decoration: underline; }
   transition: all var(--transition-base);
 }
 
-.modal-overlay.active { opacity: 1; visibility: visible; }
+.modal-overlay.active { opacity: 1; visibility: visible; backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px); }
 
 .modal {
   background: var(--sh-white);
@@ -1485,6 +1485,46 @@ a:hover { text-decoration: underline; }
   cursor: not-allowed;
 }
 
+/* 테스트 계정 안내 */
+.login-test-accounts {
+  margin-top: 24px;
+  padding-top: 20px;
+  border-top: 1px solid var(--sh-gray-border);
+}
+
+.login-test-title {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--sh-dark-secondary);
+  text-align: center;
+  margin-bottom: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.login-test-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.login-test-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 12px;
+  color: var(--sh-dark-secondary);
+  background: var(--sh-gray-background);
+  padding: 6px 12px;
+  border-radius: var(--radius-sm);
+}
+
+.login-test-item b {
+  color: var(--sh-blue-primary);
+  font-weight: 600;
+  font-family: monospace;
+}
+
 .login-lock-banner {
   background: var(--badge-error-bg);
   border: 1px solid var(--color-error);
@@ -1618,4 +1658,131 @@ a:hover { text-decoration: underline; }
 
 .pw-toggle-btn:hover {
   color: var(--sh-blue-primary);
+}
+
+/* ══════════════════════════════════════════
+   환경설정 드롭다운
+   ══════════════════════════════════════════ */
+.gnb-settings-wrap {
+  position: relative;
+}
+
+.settings-dropdown {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  background: var(--sh-white);
+  border: 1px solid var(--sh-gray-border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-medium);
+  min-width: 180px;
+  z-index: 200;
+  overflow: hidden;
+}
+
+/* ══════════════════════════════════════════
+   CUR 컬럼 관리 화면
+   ══════════════════════════════════════════ */
+.cur-toolbar {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  margin-bottom: var(--spacing-md);
+  flex-wrap: wrap;
+}
+
+.cur-toolbar-left {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  flex: 1;
+}
+
+.cur-toolbar-right {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+}
+
+.cur-filter-select {
+  height: 36px;
+  padding: 0 12px;
+  border: 1px solid var(--sh-gray-border);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-small);
+  font-family: var(--font-family-sans);
+  color: var(--sh-dark-primary);
+  background: var(--sh-white);
+  outline: none;
+  min-width: 140px;
+}
+
+.cur-filter-select:focus {
+  border-color: var(--sh-blue-primary);
+}
+
+.cur-search-input {
+  height: 36px;
+  padding: 0 12px;
+  border: 1px solid var(--sh-gray-border);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-small);
+  font-family: var(--font-family-sans);
+  color: var(--sh-dark-primary);
+  outline: none;
+  width: 240px;
+}
+
+.cur-search-input:focus {
+  border-color: var(--sh-blue-primary);
+}
+
+.cur-toggle-deleted {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--sh-dark-secondary);
+  cursor: pointer;
+  user-select: none;
+}
+
+.cur-toggle-deleted input {
+  accent-color: var(--sh-blue-primary);
+}
+
+/* CUR 모달 — 넓은 폼 */
+.modal.cur-modal {
+  width: 680px;
+}
+
+.cur-form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--spacing-md);
+}
+
+.form-textarea {
+  width: 100%;
+  min-height: 80px;
+  padding: var(--spacing-sm) var(--spacing-md);
+  border: 1px solid var(--sh-gray-border);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-base);
+  font-family: var(--font-family-sans);
+  color: var(--sh-dark-primary);
+  outline: none;
+  resize: vertical;
+  transition: border var(--transition-fast);
+}
+
+.form-textarea:focus {
+  border-color: var(--sh-blue-primary);
+}
+
+/* 삭제된 행 스타일 (AG Grid) */
+.row-deleted {
+  opacity: 0.5;
+  text-decoration: line-through;
+  background-color: #FFF1F0 !important;
 }

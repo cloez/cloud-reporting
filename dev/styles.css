@@ -309,6 +309,7 @@ a:hover { text-decoration: underline; }
 
 /* 사용자 영역 — 참조: 이름+역할 우측, 아바타 오른쪽 끝 */
 .gnb-user {
+  position: relative;
   display: flex;
   align-items: center;
   gap: 10px;
@@ -1376,3 +1377,245 @@ a:hover { text-decoration: underline; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: var(--sh-gray-border); border-radius: 3px; }
 ::-webkit-scrollbar-thumb:hover { background: #A0AECB; }
+
+/* ══════════════════════════════════════════
+   로그인 페이지
+   ══════════════════════════════════════════ */
+.login-wrapper {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
+  background: linear-gradient(135deg, var(--sh-blue-deep) 0%, var(--sh-blue-primary) 100%);
+  font-family: var(--font-family-sans);
+}
+
+.login-card {
+  background: var(--sh-white);
+  border: 1px solid var(--sh-gray-border);
+  border-radius: var(--radius-md);
+  padding: 48px 40px;
+  width: 100%;
+  max-width: 420px;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.12);
+}
+
+.login-logo {
+  text-align: center;
+  margin-bottom: 32px;
+}
+
+.login-logo-main {
+  font-size: 22px;
+  font-weight: 800;
+  color: var(--sh-blue-deep);
+  letter-spacing: -0.5px;
+  line-height: 1.3;
+}
+
+.login-logo-sub {
+  font-size: 11px;
+  color: var(--sh-dark-secondary);
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  margin-top: 4px;
+}
+
+.login-form-group {
+  margin-bottom: 20px;
+}
+
+.login-label {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--sh-dark-primary);
+  margin-bottom: 6px;
+}
+
+.login-input {
+  width: 100%;
+  height: 44px;
+  padding: 0 16px;
+  border: 1px solid var(--sh-gray-border);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-base);
+  font-family: var(--font-family-sans);
+  color: var(--sh-dark-primary);
+  outline: none;
+  transition: border-color 0.2s;
+  box-sizing: border-box;
+}
+
+.login-input:focus {
+  border-color: var(--sh-blue-primary);
+}
+
+.login-input.error {
+  border-color: var(--color-error);
+}
+
+.login-error-msg {
+  font-size: 12px;
+  color: var(--color-error);
+  margin-top: 4px;
+}
+
+.login-btn {
+  width: 100%;
+  height: 48px;
+  background: var(--sh-blue-primary);
+  color: var(--sh-white);
+  border: none;
+  border-radius: 6px;
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.2s;
+  font-family: var(--font-family-sans);
+  margin-top: 8px;
+}
+
+.login-btn:hover {
+  background: var(--sh-blue-secondary);
+}
+
+.login-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.login-lock-banner {
+  background: var(--badge-error-bg);
+  border: 1px solid var(--color-error);
+  border-radius: var(--radius-sm);
+  padding: 12px 16px;
+  margin-bottom: 20px;
+  font-size: 13px;
+  color: var(--badge-error-text);
+  text-align: center;
+  font-weight: 500;
+}
+
+/* ══════════════════════════════════════════
+   사용자 드롭다운 메뉴
+   ══════════════════════════════════════════ */
+.user-dropdown {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  background: var(--sh-white);
+  border: 1px solid var(--sh-gray-border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-medium);
+  min-width: 200px;
+  z-index: 200;
+  overflow: hidden;
+}
+
+.user-dropdown-header {
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--sh-gray-border);
+}
+
+.user-dropdown-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--sh-dark-primary);
+}
+
+.user-dropdown-dept {
+  font-size: 12px;
+  color: var(--sh-dark-secondary);
+  margin-top: 2px;
+}
+
+.user-dropdown-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 11px 16px;
+  border: none;
+  background: none;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--sh-dark-primary);
+  cursor: pointer;
+  font-family: var(--font-family-sans);
+  transition: background 0.15s;
+  text-align: left;
+}
+
+.user-dropdown-item:hover {
+  background: var(--sh-gray-background);
+}
+
+.user-dropdown-item svg {
+  color: var(--sh-dark-secondary);
+  flex-shrink: 0;
+}
+
+.user-dropdown-divider {
+  height: 1px;
+  background: var(--sh-gray-border);
+}
+
+/* ══════════════════════════════════════════
+   비밀번호 변경 모달
+   ══════════════════════════════════════════ */
+.pw-modal {
+  width: 440px;
+}
+
+.pw-policy {
+  background: var(--sh-gray-background);
+  border-radius: var(--radius-sm);
+  padding: 12px 16px;
+  margin-bottom: 20px;
+  font-size: 12px;
+  color: var(--sh-dark-secondary);
+  line-height: 1.8;
+}
+
+.pw-policy-title {
+  font-weight: 600;
+  color: var(--sh-dark-primary);
+  margin-bottom: 4px;
+  font-size: 13px;
+}
+
+.pw-strength {
+  font-size: 12px;
+  margin-top: 6px;
+}
+
+.pw-strength.pass {
+  color: var(--color-success);
+}
+
+.pw-strength.fail {
+  color: var(--color-error);
+}
+
+.pw-input-wrapper {
+  position: relative;
+}
+
+.pw-toggle-btn {
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--sh-dark-secondary);
+  padding: 4px;
+  display: flex;
+  align-items: center;
+}
+
+.pw-toggle-btn:hover {
+  color: var(--sh-blue-primary);
+}

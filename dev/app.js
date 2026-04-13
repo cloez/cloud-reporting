@@ -3,6 +3,14 @@
  * 해시 라우팅 + 5개 화면 + 모달
  */
 
+// ── 인증 상태 ──
+let isAuthenticated = localStorage.getItem('ccr_authenticated') === 'true';
+const MAX_LOGIN_FAIL = 5;
+const LOCK_DURATION_MS = 10 * 60 * 1000; // 10분
+let loginFailCount = 0;
+let lockedUntil = null;
+let lockTimer = null;
+
 // ── ECharts 신한 팔레트 ──
 // 차트 팔레트: 파란 계열 그라데이션 (design-tokens.md)
 const shinhanPalette = ['#0046FF', '#0076FF', '#002D85', '#4D8AFF', '#99B8FF'];
@@ -348,7 +356,7 @@ function switchRole() {
       Object.keys(opt.user).forEach(k => { CURRENT_USER[k] = opt.user[k]; });
       menu.remove();
       destroyAllGrids();
-      initApp();
+      initAppShell();
       handleRoute();
       showToast('info', `${opt.user.name} 님 (${opt.desc})으로 전환했습니다`);
     });
@@ -420,6 +428,28 @@ function navigate(hash) {
 
 function handleRoute() {
   const hash = window.location.hash || '#/dashboard';
+
+  // 미인증 시 로그인 페이지로 이동
+  if (!isAuthenticated) {
+    if (hash !== '#/login') {
+      window.location.hash = '#/login';
+      return;
+    }
+    renderLoginPage();
+    return;
+  }
+
+  // 인증 후 로그인 페이지 접근 시 대시보드로 리다이렉트
+  if (hash === '#/login') {
+    window.location.hash = '#/dashboard';
+    return;
+  }
+
+  // 앱 컨테이너가 없으면(로그인→앱 전환 시) 앱 초기화
+  if (!document.getElementById('app-content')) {
+    initAppShell();
+  }
+
   const content = document.getElementById('app-content');
   const renderer = routes[hash] || renderDashboard;
 
@@ -477,12 +507,27 @@ function renderGNB() {
           <button class="gnb-icon-btn" title="설정">
             <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"></path><circle cx="12" cy="12" r="3"></circle></svg>
           </button>
-          <div class="gnb-user" onclick="showToast('info','프로필 설정을 곧 이용할 수 있어요')">
+          <div class="gnb-user" id="gnb-user-btn" onclick="toggleUserDropdown(event)">
             <div class="gnb-user-text">
               <span class="gnb-user-name">${user.name} 님</span>
               <span class="gnb-user-role">${roleLabel}</span>
             </div>
             <div class="gnb-avatar">${initials}</div>
+            <div class="user-dropdown" id="user-dropdown" style="display:none;">
+              <div class="user-dropdown-header">
+                <div class="user-dropdown-name">${user.name}</div>
+                <div class="user-dropdown-dept">${user.department}</div>
+              </div>
+              <button class="user-dropdown-item" onclick="event.stopPropagation();openPasswordModal();">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+                비밀번호 변경
+              </button>
+              <div class="user-dropdown-divider"></div>
+              <button class="user-dropdown-item" onclick="event.stopPropagation();handleLogout();">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" x2="9" y1="12" y2="12"></line></svg>
+                로그아웃
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -1261,7 +1306,11 @@ function handleGenerate(code) {
 }
 
 function closeModal() {
-  document.getElementById('modal-overlay').classList.remove('active');
+  const overlay = document.getElementById('modal-overlay');
+  if (overlay) overlay.classList.remove('active');
+  // 모달 클래스 리셋 (비밀번호 모달 등 커스텀 클래스 제거)
+  const modal = document.getElementById('modal-content');
+  if (modal) modal.className = 'modal';
 }
 
 // ══════════════════════════════════════════
@@ -1497,9 +1546,335 @@ function deleteSubscriber(id) {
 }
 
 // ══════════════════════════════════════════
+// 로그인 페이지
+// ══════════════════════════════════════════
+function renderLoginPage() {
+  const app = document.getElementById('app');
+  const lockBanner = lockedUntil ? `<div class="login-lock-banner" id="lock-banner">
+    로그인 ${MAX_LOGIN_FAIL}회 실패로 계정이 잠겼습니다. <span id="lock-timer"></span> 후 다시 시도해 주세요.
+  </div>` : '';
+
+  app.innerHTML = `
+    <div class="login-wrapper">
+      <div class="login-card">
+        <div class="login-logo">
+          <div class="login-logo-main">CLOUD COST REPORTING</div>
+          <div class="login-logo-sub">클라우드 비용 리포팅 자동화</div>
+        </div>
+        ${lockBanner}
+        <form id="login-form" onsubmit="handleLogin(event)">
+          <div class="login-form-group">
+            <label class="login-label" for="login-id">아이디</label>
+            <input class="login-input" id="login-id" type="text" placeholder="아이디를 입력해 주세요" autocomplete="username" />
+            <div class="login-error-msg" id="login-id-error"></div>
+          </div>
+          <div class="login-form-group">
+            <label class="login-label" for="login-pw">비밀번호</label>
+            <div class="pw-input-wrapper">
+              <input class="login-input" id="login-pw" type="password" placeholder="비밀번호를 입력해 주세요" autocomplete="current-password" />
+              <button type="button" class="pw-toggle-btn" onclick="togglePasswordVisibility('login-pw', this)">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+              </button>
+            </div>
+            <div class="login-error-msg" id="login-pw-error"></div>
+          </div>
+          <button type="submit" class="login-btn" id="login-btn" ${lockedUntil ? 'disabled' : ''}>로그인</button>
+        </form>
+      </div>
+    </div>
+    <div class="toast-container" id="toast-container"></div>
+  `;
+
+  // 잠금 타이머 업데이트
+  if (lockedUntil) startLockTimer();
+
+  // 첫 번째 입력 필드에 포커스
+  setTimeout(() => document.getElementById('login-id')?.focus(), 100);
+}
+
+// 로그인 처리
+function handleLogin(e) {
+  e.preventDefault();
+
+  // 잠금 상태 확인
+  if (lockedUntil && Date.now() < lockedUntil) return;
+
+  const username = document.getElementById('login-id').value.trim();
+  const password = document.getElementById('login-pw').value.trim();
+  const idError = document.getElementById('login-id-error');
+  const pwError = document.getElementById('login-pw-error');
+
+  // 검증 초기화
+  idError.textContent = '';
+  pwError.textContent = '';
+  document.getElementById('login-id').classList.remove('error');
+  document.getElementById('login-pw').classList.remove('error');
+
+  let hasError = false;
+  if (!username) {
+    idError.textContent = '아이디를 입력해 주세요.';
+    document.getElementById('login-id').classList.add('error');
+    hasError = true;
+  }
+  if (!password) {
+    pwError.textContent = '비밀번호를 입력해 주세요.';
+    document.getElementById('login-pw').classList.add('error');
+    hasError = true;
+  }
+  if (hasError) return;
+
+  // 사용자 확인 (프로토타입: username만 확인)
+  const found = USERS.find(u => u.username === username && u.isActive);
+  if (!found) {
+    loginFailCount++;
+    if (loginFailCount >= MAX_LOGIN_FAIL) {
+      lockedUntil = Date.now() + LOCK_DURATION_MS;
+      renderLoginPage();
+      showToast('error', `로그인 ${MAX_LOGIN_FAIL}회 실패로 계정이 10분간 잠겼습니다`);
+      return;
+    }
+    pwError.textContent = `아이디 또는 비밀번호가 올바르지 않습니다. (${loginFailCount}/${MAX_LOGIN_FAIL})`;
+    document.getElementById('login-pw').classList.add('error');
+    return;
+  }
+
+  // 로그인 성공
+  loginFailCount = 0;
+  lockedUntil = null;
+  isAuthenticated = true;
+  localStorage.setItem('ccr_authenticated', 'true');
+
+  // 현재 사용자 전환
+  Object.keys(found).forEach(k => { CURRENT_USER[k] = found[k]; });
+
+  // 앱 진입
+  window.location.hash = '#/dashboard';
+}
+
+// 잠금 타이머
+function startLockTimer() {
+  if (lockTimer) clearInterval(lockTimer);
+  lockTimer = setInterval(() => {
+    if (!lockedUntil || Date.now() >= lockedUntil) {
+      lockedUntil = null;
+      loginFailCount = 0;
+      clearInterval(lockTimer);
+      lockTimer = null;
+      renderLoginPage();
+      return;
+    }
+    const remaining = Math.max(0, Math.ceil((lockedUntil - Date.now()) / 1000));
+    const min = Math.floor(remaining / 60);
+    const sec = remaining % 60;
+    const timerEl = document.getElementById('lock-timer');
+    if (timerEl) timerEl.textContent = `${min}분 ${sec}초`;
+    const btn = document.getElementById('login-btn');
+    if (btn) btn.disabled = true;
+  }, 1000);
+}
+
+// 로그아웃
+function handleLogout() {
+  isAuthenticated = false;
+  localStorage.removeItem('ccr_authenticated');
+  closeUserDropdown();
+  destroyAllGrids();
+  window.location.hash = '#/login';
+}
+
+// ══════════════════════════════════════════
+// 사용자 드롭다운 메뉴
+// ══════════════════════════════════════════
+function toggleUserDropdown(e) {
+  e.stopPropagation();
+  const dropdown = document.getElementById('user-dropdown');
+  if (!dropdown) return;
+
+  const isVisible = dropdown.style.display !== 'none';
+  if (isVisible) {
+    closeUserDropdown();
+  } else {
+    dropdown.style.display = 'block';
+    // 바깥 클릭으로 닫기
+    setTimeout(() => {
+      document.addEventListener('click', closeUserDropdownHandler);
+    }, 10);
+  }
+}
+
+function closeUserDropdown() {
+  const dropdown = document.getElementById('user-dropdown');
+  if (dropdown) dropdown.style.display = 'none';
+  document.removeEventListener('click', closeUserDropdownHandler);
+}
+
+function closeUserDropdownHandler(e) {
+  if (!e.target.closest('#gnb-user-btn')) {
+    closeUserDropdown();
+  }
+}
+
+// ══════════════════════════════════════════
+// 비밀번호 변경 모달
+// ══════════════════════════════════════════
+function openPasswordModal() {
+  closeUserDropdown();
+  const overlay = document.getElementById('modal-overlay');
+  const modal = document.getElementById('modal-content');
+  modal.className = 'modal pw-modal';
+
+  modal.innerHTML = `
+    <div class="modal-header">
+      <h2 class="modal-title">비밀번호 변경</h2>
+      <button class="modal-close" onclick="closeModal()">&times;</button>
+    </div>
+    <div class="pw-policy">
+      <div class="pw-policy-title">비밀번호 정책</div>
+      10자 이상 / 대문자·소문자·숫자·특수문자 각 1개 이상 포함<br/>
+      동일 문자 3회 연속 사용 불가 / 아이디 포함 불가
+    </div>
+    <div class="form-group">
+      <label class="form-label">현재 비밀번호</label>
+      <div class="pw-input-wrapper">
+        <input class="form-input" id="pw-current" type="password" placeholder="현재 비밀번호 입력" />
+        <button type="button" class="pw-toggle-btn" onclick="togglePasswordVisibility('pw-current', this)">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+        </button>
+      </div>
+      <div class="login-error-msg" id="pw-current-error"></div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">새 비밀번호</label>
+      <div class="pw-input-wrapper">
+        <input class="form-input" id="pw-new" type="password" placeholder="새 비밀번호 입력" oninput="checkPasswordStrength()" />
+        <button type="button" class="pw-toggle-btn" onclick="togglePasswordVisibility('pw-new', this)">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+        </button>
+      </div>
+      <div id="pw-strength-feedback"></div>
+      <div class="login-error-msg" id="pw-new-error"></div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">새 비밀번호 확인</label>
+      <div class="pw-input-wrapper">
+        <input class="form-input" id="pw-confirm" type="password" placeholder="새 비밀번호 재입력" />
+        <button type="button" class="pw-toggle-btn" onclick="togglePasswordVisibility('pw-confirm', this)">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+        </button>
+      </div>
+      <div class="login-error-msg" id="pw-confirm-error"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal()">취소</button>
+      <button class="btn btn-primary" onclick="handlePasswordChange()">변경</button>
+    </div>
+  `;
+
+  overlay.classList.add('active');
+  setTimeout(() => document.getElementById('pw-current')?.focus(), 200);
+}
+
+// 비밀번호 강도 검증
+function validatePasswordPolicy(password) {
+  const errors = [];
+  if (password.length < 10) errors.push('10자 이상이어야 합니다.');
+  if (!/[A-Z]/.test(password)) errors.push('대문자를 포함해야 합니다.');
+  if (!/[a-z]/.test(password)) errors.push('소문자를 포함해야 합니다.');
+  if (!/[0-9]/.test(password)) errors.push('숫자를 포함해야 합니다.');
+  if (!/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password)) errors.push('특수문자를 포함해야 합니다.');
+  if (/(.)\1{2,}/.test(password)) errors.push('동일 문자를 3회 이상 연속 사용할 수 없습니다.');
+  const loginId = CURRENT_USER.username || '';
+  if (loginId && password.toLowerCase().includes(loginId.toLowerCase())) errors.push('아이디를 포함할 수 없습니다.');
+  return errors;
+}
+
+// 실시간 비밀번호 강도 피드백
+function checkPasswordStrength() {
+  const pw = document.getElementById('pw-new')?.value || '';
+  const feedbackEl = document.getElementById('pw-strength-feedback');
+  if (!feedbackEl) return;
+
+  if (!pw) {
+    feedbackEl.innerHTML = '';
+    return;
+  }
+
+  const errors = validatePasswordPolicy(pw);
+  if (errors.length === 0) {
+    feedbackEl.innerHTML = '<div class="pw-strength pass">비밀번호 정책을 충족합니다.</div>';
+  } else {
+    feedbackEl.innerHTML = errors.map(msg => `<div class="pw-strength fail">${msg}</div>`).join('');
+  }
+}
+
+// 비밀번호 변경 처리
+function handlePasswordChange() {
+  const current = document.getElementById('pw-current').value;
+  const newPw = document.getElementById('pw-new').value;
+  const confirm = document.getElementById('pw-confirm').value;
+
+  // 초기화
+  ['pw-current-error', 'pw-new-error', 'pw-confirm-error'].forEach(id => {
+    document.getElementById(id).textContent = '';
+  });
+
+  let hasError = false;
+
+  if (!current) {
+    document.getElementById('pw-current-error').textContent = '현재 비밀번호를 입력해 주세요.';
+    hasError = true;
+  }
+
+  if (!newPw) {
+    document.getElementById('pw-new-error').textContent = '새 비밀번호를 입력해 주세요.';
+    hasError = true;
+  } else {
+    const pwErrors = validatePasswordPolicy(newPw);
+    if (pwErrors.length > 0) {
+      document.getElementById('pw-new-error').textContent = pwErrors[0];
+      hasError = true;
+    }
+  }
+
+  if (!confirm) {
+    document.getElementById('pw-confirm-error').textContent = '새 비밀번호를 다시 입력해 주세요.';
+    hasError = true;
+  } else if (newPw && newPw !== confirm) {
+    document.getElementById('pw-confirm-error').textContent = '새 비밀번호가 일치하지 않습니다.';
+    hasError = true;
+  }
+
+  if (current && newPw && current === newPw) {
+    document.getElementById('pw-new-error').textContent = '현재 비밀번호와 다른 비밀번호를 입력해 주세요.';
+    hasError = true;
+  }
+
+  if (hasError) return;
+
+  // 프로토타입: 성공 처리
+  closeModal();
+  showToast('success', '비밀번호가 변경되었습니다');
+}
+
+// 비밀번호 표시/숨김 토글
+function togglePasswordVisibility(inputId, btn) {
+  const input = document.getElementById(inputId);
+  if (!input) return;
+  const isPassword = input.type === 'password';
+  input.type = isPassword ? 'text' : 'password';
+
+  // 아이콘 교체
+  btn.innerHTML = isPassword
+    ? '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path><line x1="1" x2="23" y1="1" y2="23"></line></svg>'
+    : '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"></path><circle cx="12" cy="12" r="3"></circle></svg>';
+}
+
+// ══════════════════════════════════════════
 // 초기화
 // ══════════════════════════════════════════
-function initApp() {
+
+// 앱 셸 렌더링 (GNB + 콘텐츠 영역 + 모달 + 토스트)
+function initAppShell() {
   const app = document.getElementById('app');
   app.innerHTML = `
     ${renderGNB()}
@@ -1509,7 +1884,9 @@ function initApp() {
     </div>
     <div class="toast-container" id="toast-container"></div>
   `;
+}
 
+function initApp() {
   window.addEventListener('hashchange', handleRoute);
   handleRoute();
 }

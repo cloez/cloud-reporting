@@ -211,6 +211,7 @@ const gridIdMap = {
   subscribers: 'grid-subscribers',
   subLogs: 'grid-sub-logs',
   curColumns: 'grid-cur-columns',
+  users: 'grid-users',
 };
 
 // ── 헤더 우클릭 컬럼 선택 메뉴 ──
@@ -325,8 +326,8 @@ function changeGridPageSize(gridKey, newSize) {
 // ── 역할 전환 (프로토타입 전용) ──
 const ROLE_SWITCH_OPTIONS = [
   { user: USERS[0], label: '시스템 관리자', desc: 'ADMIN' },
-  { user: USERS[1], label: 'Cloud Ops 담당자', desc: 'OPS' },
-  { user: USERS[3], label: '경영진·실무자', desc: 'VIEWER' },
+  { user: USERS[1], label: '승인자', desc: 'APPROVER' },
+  { user: USERS[2], label: '사용자', desc: 'USER' },
 ];
 
 function switchRole() {
@@ -422,6 +423,7 @@ const routes = {
   '#/reports': renderReports,
   '#/subscriptions': renderSubscriptions,
   '#/settings/cur-columns': renderCurColumns,
+  '#/settings/users': renderUserManagement,
 };
 
 function navigate(hash) {
@@ -480,8 +482,7 @@ function handleRoute() {
 function renderGNB() {
   const user = CURRENT_USER;
   const initials = user.name.charAt(0);
-  const roleLabels = { ROLE_OPS: 'Cloud Ops', ROLE_VIEWER: '조회 권한', ROLE_ADMIN: '관리자' };
-  const roleLabel = roleLabels[user.roles[0]] || user.roles[0];
+  const roleLabel = ROLE_LABELS[user.roles[0]] || user.roles[0];
 
   return `
     <nav class="gnb">
@@ -512,6 +513,10 @@ function renderGNB() {
               <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"></path><circle cx="12" cy="12" r="3"></circle></svg>
             </button>
             <div class="settings-dropdown" id="settings-dropdown" style="display:none;">
+              <button class="user-dropdown-item" onclick="navigate('#/settings/users');closeSettingsMenu();">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M22 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
+                사용자 관리
+              </button>
               <button class="user-dropdown-item" onclick="navigate('#/settings/cur-columns');closeSettingsMenu();">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v18"></path><rect width="18" height="18" x="3" y="3" rx="2"></rect><path d="M3 9h18"></path><path d="M3 15h18"></path></svg>
                 CUR 컬럼 관리
@@ -605,6 +610,10 @@ function renderGNB() {
             </button>
             <div class="gnb-dropdown" id="menu-settings">
               <div class="gnb-dropdown-inner">
+                <a class="gnb-dropdown-item" data-route="#/settings/users" onclick="navigate('#/settings/users');return false;" href="#/settings/users">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M22 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
+                  사용자 관리
+                </a>
                 <a class="gnb-dropdown-item" data-route="#/settings/cur-columns" onclick="navigate('#/settings/cur-columns');return false;" href="#/settings/cur-columns">
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v18"></path><rect width="18" height="18" x="3" y="3" rx="2"></rect><path d="M3 9h18"></path><path d="M3 15h18"></path></svg>
                   CUR 컬럼 관리
@@ -1587,6 +1596,7 @@ function deleteSubscriber(id) {
 // 환경설정 드롭다운 토글
 function toggleSettingsMenu(e) {
   e.stopPropagation();
+  closeUserDropdown(); // 사용자 드롭다운 닫기
   const dropdown = document.getElementById('settings-dropdown');
   if (!dropdown) return;
   const isVisible = dropdown.style.display !== 'none';
@@ -1784,7 +1794,10 @@ function openCurModal(mode, id) {
       <div class="form-group">
         <label class="form-label">데이터 타입 *</label>
         <select class="form-select" id="cur-f-dataType">
-          ${dataTypes.map(t => `<option value="${t}" ${data.dataType === t ? 'selected' : ''}>${t}</option>`).join('')}
+          ${dataTypes.map(t => {
+            const escaped = t.replace(/</g, '&lt;').replace(/>/g, '&gt;');
+            return `<option value="${escaped}" ${data.dataType === t ? 'selected' : ''}>${escaped}</option>`;
+          }).join('')}
         </select>
       </div>
     </div>
@@ -1826,7 +1839,7 @@ function saveCurColumn(mode, id) {
   const columnName = document.getElementById('cur-f-columnName').value.trim();
   const columnKoName = document.getElementById('cur-f-columnKoName').value.trim();
   const description = document.getElementById('cur-f-description').value.trim();
-  const dataType = document.getElementById('cur-f-dataType').value;
+  const dataType = document.getElementById('cur-f-dataType').value.replace(/&lt;/g, '<').replace(/&gt;/g, '>');
   const nullability = document.getElementById('cur-f-nullability').value.trim();
   const properties = document.getElementById('cur-f-properties').value.trim();
 
@@ -1877,6 +1890,295 @@ function restoreCurColumn(id) {
 }
 
 // ══════════════════════════════════════════
+// 7. 환경설정 — 사용자 관리
+// ══════════════════════════════════════════
+
+function renderUserManagement(el) {
+  if (!CURRENT_USER.roles.includes('ROLE_ADMIN')) {
+    el.innerHTML = `<div class="empty-state"><div class="empty-state-icon">🔒</div><div class="empty-state-text">접근 권한이 없습니다</div><div class="empty-state-hint">시스템 관리자만 이용할 수 있습니다</div></div>`;
+    return;
+  }
+
+  // 비밀번호 초기화 요청 건수
+  const resetCount = USERS.filter(u => u.pwResetRequested).length;
+
+  el.innerHTML = `
+    <div class="page-header">
+      <h1 class="page-title">사용자 관리</h1>
+      <p class="page-desc">사용자 계정을 관리합니다. 등록·수정·삭제 및 비밀번호 초기화가 가능합니다.</p>
+    </div>
+
+    ${resetCount > 0 ? `
+    <div class="section-card" style="border-left:3px solid var(--color-warning);margin-bottom:var(--spacing-md);">
+      <div style="display:flex;align-items:center;gap:12px;">
+        <span style="font-size:20px;">⚠</span>
+        <div>
+          <strong>비밀번호 초기화 요청 ${resetCount}건</strong>
+          <div style="font-size:12px;color:var(--sh-dark-secondary);margin-top:2px;">사용자가 로그인 화면에서 요청한 건입니다. 승인 시 비밀번호가 아이디와 동일하게 초기화됩니다.</div>
+        </div>
+      </div>
+    </div>
+    ` : ''}
+
+    <div class="section-card">
+      <div class="cur-toolbar">
+        <div class="cur-toolbar-left">
+          <select class="cur-filter-select" id="user-role-filter" onchange="filterUserGrid()">
+            <option value="">전체 역할</option>
+            ${ROLES.map(r => `<option value="${r.name}">${r.label}</option>`).join('')}
+          </select>
+          <input class="cur-search-input" id="user-search" type="text" placeholder="이름, 아이디, 부서 검색..." oninput="filterUserGrid()" />
+          <label class="cur-toggle-deleted">
+            <input type="checkbox" id="user-show-inactive" onchange="filterUserGrid();" />
+            비활성 포함
+          </label>
+        </div>
+        <div class="cur-toolbar-right">
+          <button class="btn btn-primary btn-sm" onclick="openUserModal('create')">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14"></path><path d="M5 12h14"></path></svg>
+            등록
+          </button>
+        </div>
+      </div>
+      <div id="grid-users" class="ag-theme-alpine" style="width:100%;height:480px;"></div>
+      <div id="user-grid-toolbar"></div>
+    </div>
+  `;
+
+  initUserGrid();
+}
+
+function initUserGrid() {
+  const columnDefs = [
+    { headerName: 'ID', field: 'id', width: 60, hide: true },
+    { headerName: '아이디(사번)', field: 'username', width: 120 },
+    { headerName: '이름', field: 'name', width: 100 },
+    { headerName: '역할', field: 'roles', width: 120,
+      valueGetter: (p) => ROLE_LABELS[p.data.roles[0]] || p.data.roles[0],
+      cellRenderer: (p) => {
+        const role = p.data.roles[0];
+        const colors = { ROLE_ADMIN: '#FF4D4F', ROLE_APPROVER: '#0046FF', ROLE_USER: '#00C07F' };
+        const color = colors[role] || '#4D4D4D';
+        return `<span style="display:inline-block;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;background:${color}15;color:${color};">${ROLE_LABELS[role] || role}</span>`;
+      }
+    },
+    { headerName: '부서', field: 'department', width: 130 },
+    { headerName: '전화번호', field: 'phone', width: 130 },
+    { headerName: '이메일', field: 'email', flex: 1, minWidth: 180, tooltipField: 'email' },
+    { headerName: '등록일', field: 'createdAt', width: 110,
+      valueFormatter: (p) => p.value ? p.value.substring(0, 10).replace(/-/g, '.') : '-'
+    },
+    { headerName: '상태', field: 'isActive', width: 80,
+      cellRenderer: (p) => {
+        if (p.data.pwResetRequested) return `<span style="color:var(--color-warning);font-weight:600;">초기화 요청</span>`;
+        return p.value ? '<span style="color:var(--color-success);font-weight:600;">활성</span>' : '<span style="color:var(--sh-dark-secondary);">비활성</span>';
+      }
+    },
+    { headerName: '관리', width: 200, sortable: false, filter: false, pinned: 'right',
+      cellRenderer: (p) => {
+        let btns = `<button class="btn btn-sm btn-secondary" onclick="openUserModal('edit',${p.data.id})" style="font-size:11px;margin-right:4px;">수정</button>`;
+        if (p.data.pwResetRequested) {
+          btns += `<button class="btn btn-sm btn-primary" onclick="approvePasswordReset(${p.data.id})" style="font-size:11px;margin-right:4px;">승인</button>`;
+        } else {
+          btns += `<button class="btn btn-sm btn-secondary" onclick="resetUserPassword(${p.data.id})" style="font-size:11px;margin-right:4px;">초기화</button>`;
+        }
+        btns += p.data.isActive
+          ? `<button class="btn btn-sm btn-danger" onclick="toggleUserActive(${p.data.id})" style="font-size:11px;">비활성</button>`
+          : `<button class="btn btn-sm btn-secondary" onclick="toggleUserActive(${p.data.id})" style="font-size:11px;">활성</button>`;
+        return btns;
+      }
+    },
+  ];
+
+  const activeUsers = USERS.filter(u => u.isActive);
+  const gridOptions = {
+    columnDefs,
+    rowData: activeUsers,
+    defaultColDef: { sortable: true, resizable: true, suppressMovable: false },
+    pagination: true,
+    paginationPageSize: getSavedPageSize('users', 10),
+    rowHeight: 40,
+    headerHeight: 42,
+    tooltipShowDelay: 300,
+    getRowClass: (p) => !p.data.isActive ? 'row-deleted' : '',
+    onGridReady: (params) => {
+      gridInstances['users'] = params.api;
+      bindGridPagination('users');
+      const toolbarEl = document.getElementById('user-grid-toolbar');
+      if (toolbarEl) {
+        toolbarEl.innerHTML = renderGridToolbar('users', '사용자목록', activeUsers.length, getSavedPageSize('users', 10));
+      }
+    },
+  };
+
+  const gridEl = document.getElementById('grid-users');
+  if (gridEl) agGrid.createGrid(gridEl, gridOptions);
+}
+
+// 사용자 그리드 필터링
+function filterUserGrid() {
+  const api = gridInstances['users'];
+  if (!api) return;
+  const role = document.getElementById('user-role-filter')?.value || '';
+  const search = (document.getElementById('user-search')?.value || '').toLowerCase();
+  const showInactive = document.getElementById('user-show-inactive')?.checked || false;
+
+  const filtered = USERS.filter(u => {
+    if (!showInactive && !u.isActive) return false;
+    if (role && !u.roles.includes(role)) return false;
+    if (search) {
+      return u.username.toLowerCase().includes(search)
+        || u.name.toLowerCase().includes(search)
+        || u.department.toLowerCase().includes(search);
+    }
+    return true;
+  });
+
+  api.setGridOption('rowData', filtered);
+  const toolbarEl = document.getElementById('user-grid-toolbar');
+  if (toolbarEl) {
+    toolbarEl.innerHTML = renderGridToolbar('users', '사용자목록', filtered.length, api.paginationGetPageSize());
+  }
+}
+
+// 사용자 추가/수정 모달
+function openUserModal(mode, id) {
+  const overlay = document.getElementById('modal-overlay');
+  const modal = document.getElementById('modal-content');
+  modal.className = 'modal cur-modal';
+
+  let data = { username: '', name: '', phone: '', email: '', department: '', roles: ['ROLE_USER'] };
+  if (mode === 'edit' && id) {
+    const found = USERS.find(u => u.id === id);
+    if (found) data = { ...found };
+  }
+
+  const title = mode === 'create' ? '사용자 등록' : '사용자 수정';
+
+  modal.innerHTML = `
+    <div class="modal-header">
+      <h2 class="modal-title">${title}</h2>
+      <button class="modal-close" onclick="closeModal()">&times;</button>
+    </div>
+    <div class="cur-form-row">
+      <div class="form-group">
+        <label class="form-label">아이디(사번) *</label>
+        <input class="form-input" id="user-f-username" value="${data.username}" placeholder="예: hong001" ${mode === 'edit' ? 'readonly style="background:#f5f5f5;"' : ''} />
+      </div>
+      <div class="form-group">
+        <label class="form-label">역할 *</label>
+        <select class="form-select" id="user-f-role">
+          ${ROLES.map(r => `<option value="${r.name}" ${data.roles[0] === r.name ? 'selected' : ''}>${r.label}</option>`).join('')}
+        </select>
+      </div>
+    </div>
+    <div class="cur-form-row">
+      <div class="form-group">
+        <label class="form-label">이름 *</label>
+        <input class="form-input" id="user-f-name" value="${data.name}" placeholder="예: 홍길동" />
+      </div>
+      <div class="form-group">
+        <label class="form-label">부서 *</label>
+        <input class="form-input" id="user-f-department" value="${data.department}" placeholder="예: 클라우드운영팀" />
+      </div>
+    </div>
+    <div class="cur-form-row">
+      <div class="form-group">
+        <label class="form-label">전화번호</label>
+        <input class="form-input" id="user-f-phone" value="${data.phone}" placeholder="예: 010-1234-5678" />
+      </div>
+      <div class="form-group">
+        <label class="form-label">이메일 *</label>
+        <input class="form-input" id="user-f-email" value="${data.email}" placeholder="예: hong@shinhan-ds.com" />
+      </div>
+    </div>
+    ${mode === 'create' ? '<div style="font-size:12px;color:var(--sh-dark-secondary);margin-top:4px;">초기 비밀번호는 아이디와 동일하게 설정됩니다.</div>' : ''}
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal()">취소</button>
+      <button class="btn btn-primary" onclick="saveUser('${mode}', ${id || 0})">${mode === 'create' ? '등록' : '저장'}</button>
+    </div>
+  `;
+
+  overlay.classList.add('active');
+  setTimeout(() => document.getElementById(mode === 'create' ? 'user-f-username' : 'user-f-name')?.focus(), 200);
+}
+
+// 사용자 저장
+function saveUser(mode, id) {
+  const username = document.getElementById('user-f-username').value.trim();
+  const name = document.getElementById('user-f-name').value.trim();
+  const phone = document.getElementById('user-f-phone').value.trim();
+  const email = document.getElementById('user-f-email').value.trim();
+  const department = document.getElementById('user-f-department').value.trim();
+  const role = document.getElementById('user-f-role').value;
+
+  if (!username) { showToast('error', '아이디를 입력해 주세요'); return; }
+  if (!name) { showToast('error', '이름을 입력해 주세요'); return; }
+  if (!department) { showToast('error', '부서를 입력해 주세요'); return; }
+  if (!email) { showToast('error', '이메일을 입력해 주세요'); return; }
+
+  if (mode === 'create') {
+    // 아이디 중복 확인
+    if (USERS.some(u => u.username === username)) {
+      showToast('error', '이미 사용 중인 아이디입니다');
+      return;
+    }
+    const newId = Math.max(...USERS.map(u => u.id)) + 1;
+    USERS.push({
+      id: newId, username, name, phone, email, department,
+      roles: [role], isActive: true,
+      createdAt: new Date().toISOString().substring(0, 19),
+      pwResetRequested: false,
+    });
+    showToast('success', `${name} 님을 등록했습니다. 초기 비밀번호는 아이디와 동일합니다.`);
+  } else {
+    const item = USERS.find(u => u.id === id);
+    if (item) {
+      Object.assign(item, { name, phone, email, department, roles: [role] });
+      showToast('success', `${name} 님의 정보를 수정했습니다`);
+    }
+  }
+
+  closeModal();
+  filterUserGrid();
+}
+
+// 사용자 활성/비활성 토글
+function toggleUserActive(id) {
+  const item = USERS.find(u => u.id === id);
+  if (!item) return;
+  const action = item.isActive ? '비활성화' : '활성화';
+  if (confirm(`${item.name} 님을 ${action}하시겠어요?`)) {
+    item.isActive = !item.isActive;
+    showToast('success', `${item.name} 님을 ${action}했습니다`);
+    filterUserGrid();
+  }
+}
+
+// 관리자 직접 비밀번호 초기화 (아이디와 동일)
+function resetUserPassword(id) {
+  const item = USERS.find(u => u.id === id);
+  if (!item) return;
+  if (confirm(`${item.name} 님의 비밀번호를 아이디(${item.username})와 동일하게 초기화하시겠어요?`)) {
+    item.pwResetRequested = false;
+    showToast('success', `${item.name} 님의 비밀번호를 초기화했습니다`);
+    filterUserGrid();
+  }
+}
+
+// 비밀번호 초기화 요청 승인
+function approvePasswordReset(id) {
+  const item = USERS.find(u => u.id === id);
+  if (!item) return;
+  if (confirm(`${item.name} 님의 비밀번호 초기화 요청을 승인하시겠어요?\n비밀번호가 아이디(${item.username})와 동일하게 초기화됩니다.`)) {
+    item.pwResetRequested = false;
+    showToast('success', `${item.name} 님의 비밀번호 초기화를 승인했습니다`);
+    // 화면 다시 렌더링 (요청 건수 배너 갱신)
+    renderUserManagement(document.getElementById('app-content'));
+  }
+}
+
+// ══════════════════════════════════════════
 // 로그인 페이지
 // ══════════════════════════════════════════
 function renderLoginPage() {
@@ -1910,13 +2212,16 @@ function renderLoginPage() {
             <div class="login-error-msg" id="login-pw-error"></div>
           </div>
           <button type="submit" class="login-btn" id="login-btn" ${lockedUntil ? 'disabled' : ''}>로그인</button>
+          <div class="login-pw-reset-link">
+            <a href="#" onclick="event.preventDefault();openPwResetRequest();">비밀번호를 잊으셨나요?</a>
+          </div>
         </form>
         <div class="login-test-accounts">
           <div class="login-test-title">테스트 계정 (비밀번호: 아무 값)</div>
           <div class="login-test-list">
-            <span class="login-test-item"><b>kimops</b> Cloud Ops</span>
-            <span class="login-test-item"><b>admin</b> 관리자</span>
-            <span class="login-test-item"><b>parkview</b> 경영진</span>
+            <span class="login-test-item"><b>admin</b> 시스템 관리자</span>
+            <span class="login-test-item"><b>kimops</b> 승인자</span>
+            <span class="login-test-item"><b>leeops</b> 사용자</span>
           </div>
         </div>
       </div>
@@ -2012,6 +2317,29 @@ function startLockTimer() {
   }, 1000);
 }
 
+// 로그인 화면 — 비밀번호 초기화 요청
+function openPwResetRequest() {
+  const username = document.getElementById('login-id')?.value.trim();
+  if (!username) {
+    showToast('error', '아이디를 먼저 입력해 주세요');
+    document.getElementById('login-id')?.focus();
+    return;
+  }
+  const found = USERS.find(u => u.username === username);
+  if (!found) {
+    showToast('error', '등록되지 않은 아이디입니다');
+    return;
+  }
+  if (found.pwResetRequested) {
+    showToast('info', '이미 초기화 요청이 접수되었습니다. 관리자 승인을 기다려 주세요.');
+    return;
+  }
+  if (confirm(`${username} 계정의 비밀번호 초기화를 요청하시겠어요?\n관리자가 승인하면 비밀번호가 아이디와 동일하게 초기화됩니다.`)) {
+    found.pwResetRequested = true;
+    showToast('success', '비밀번호 초기화 요청이 접수되었습니다. 관리자 승인을 기다려 주세요.');
+  }
+}
+
 // 로그아웃
 function handleLogout() {
   isAuthenticated = false;
@@ -2026,6 +2354,7 @@ function handleLogout() {
 // ══════════════════════════════════════════
 function toggleUserDropdown(e) {
   e.stopPropagation();
+  closeSettingsMenu(); // 설정 드롭다운 닫기
   const dropdown = document.getElementById('user-dropdown');
   if (!dropdown) return;
 

@@ -5,23 +5,26 @@
 
 // ── 역할 ──
 const ROLES = [
-  { id: 1, name: 'ROLE_OPS', description: 'Cloud Ops 담당자' },
-  { id: 2, name: 'ROLE_VIEWER', description: '경영진·실무자' },
-  { id: 3, name: 'ROLE_ADMIN', description: '시스템 관리자' },
+  { id: 1, name: 'ROLE_ADMIN', label: '시스템 관리자' },
+  { id: 2, name: 'ROLE_APPROVER', label: '승인자' },
+  { id: 3, name: 'ROLE_USER', label: '사용자' },
 ];
+
+// ── 역할 라벨 매핑 ──
+const ROLE_LABELS = { ROLE_ADMIN: '시스템 관리자', ROLE_APPROVER: '승인자', ROLE_USER: '사용자' };
 
 // ── 사용자 (10명) ──
 const USERS = [
-  { id: 1, username: 'admin', name: '관리자', email: 'admin@shinhan-ds.com', department: '시스템운영팀', roles: ['ROLE_ADMIN'], isActive: true },
-  { id: 2, username: 'kimops', name: '김운영', email: 'kimops@shinhan-ds.com', department: '클라우드운영팀', roles: ['ROLE_OPS'], isActive: true },
-  { id: 3, username: 'leeops', name: '이관리', email: 'leeops@shinhan-ds.com', department: '클라우드운영팀', roles: ['ROLE_OPS'], isActive: true },
-  { id: 4, username: 'parkview', name: '박경영', email: 'parkview@shinhan-ds.com', department: '경영기획실', roles: ['ROLE_VIEWER'], isActive: true },
-  { id: 5, username: 'choiview', name: '최재무', email: 'choiview@shinhan-ds.com', department: '재무팀', roles: ['ROLE_VIEWER'], isActive: true },
-  { id: 6, username: 'jungview', name: '정인프라', email: 'jungview@shinhan-ds.com', department: '인프라팀', roles: ['ROLE_VIEWER'], isActive: true },
-  { id: 7, username: 'kangview', name: '강개발', email: 'kangview@shinhan-ds.com', department: '개발1팀', roles: ['ROLE_VIEWER'], isActive: true },
-  { id: 8, username: 'yoonview', name: '윤데이터', email: 'yoonview@shinhan-ds.com', department: '데이터팀', roles: ['ROLE_VIEWER'], isActive: true },
-  { id: 9, username: 'hwangview', name: '황보안', email: 'hwangview@shinhan-ds.com', department: '인프라팀', roles: ['ROLE_VIEWER'], isActive: false },
-  { id: 10, username: 'sonadmin', name: '손관리', email: 'sonadmin@shinhan-ds.com', department: '시스템운영팀', roles: ['ROLE_ADMIN'], isActive: true },
+  { id: 1, username: 'admin', name: '관리자', phone: '010-1234-5678', email: 'admin@shinhan-ds.com', department: '시스템운영팀', roles: ['ROLE_ADMIN'], isActive: true, createdAt: '2025-01-02T09:00:00', pwResetRequested: false },
+  { id: 2, username: 'kimops', name: '김운영', phone: '010-2345-6789', email: 'kimops@shinhan-ds.com', department: '클라우드운영팀', roles: ['ROLE_APPROVER'], isActive: true, createdAt: '2025-03-15T09:00:00', pwResetRequested: false },
+  { id: 3, username: 'leeops', name: '이관리', phone: '010-3456-7890', email: 'leeops@shinhan-ds.com', department: '클라우드운영팀', roles: ['ROLE_USER'], isActive: true, createdAt: '2025-03-15T09:00:00', pwResetRequested: false },
+  { id: 4, username: 'parkview', name: '박경영', phone: '010-4567-8901', email: 'parkview@shinhan-ds.com', department: '경영기획실', roles: ['ROLE_APPROVER'], isActive: true, createdAt: '2025-04-01T09:00:00', pwResetRequested: false },
+  { id: 5, username: 'choiview', name: '최재무', phone: '010-5678-9012', email: 'choiview@shinhan-ds.com', department: '재무팀', roles: ['ROLE_USER'], isActive: true, createdAt: '2025-04-10T09:00:00', pwResetRequested: false },
+  { id: 6, username: 'jungview', name: '정인프라', phone: '010-6789-0123', email: 'jungview@shinhan-ds.com', department: '인프라팀', roles: ['ROLE_USER'], isActive: true, createdAt: '2025-05-20T09:00:00', pwResetRequested: false },
+  { id: 7, username: 'kangview', name: '강개발', phone: '010-7890-1234', email: 'kangview@shinhan-ds.com', department: '개발1팀', roles: ['ROLE_USER'], isActive: true, createdAt: '2025-06-01T09:00:00', pwResetRequested: false },
+  { id: 8, username: 'yoonview', name: '윤데이터', phone: '010-8901-2345', email: 'yoonview@shinhan-ds.com', department: '데이터팀', roles: ['ROLE_USER'], isActive: true, createdAt: '2025-07-15T09:00:00', pwResetRequested: true },
+  { id: 9, username: 'hwangview', name: '황보안', phone: '010-9012-3456', email: 'hwangview@shinhan-ds.com', department: '인프라팀', roles: ['ROLE_USER'], isActive: false, createdAt: '2025-08-01T09:00:00', pwResetRequested: false },
+  { id: 10, username: 'sonadmin', name: '손관리', phone: '010-0123-4567', email: 'sonadmin@shinhan-ds.com', department: '시스템운영팀', roles: ['ROLE_ADMIN'], isActive: true, createdAt: '2025-01-02T09:00:00', pwResetRequested: false },
 ];
 
 // ── 현재 로그인 사용자 (프로토타입용) ──

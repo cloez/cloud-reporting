@@ -1,9 +1,75 @@
 # 더미 데이터 스펙 — 클라우드 비용 리포팅 자동화
 
-> **버전**: v1.0  
-> **작성일**: 2026-04-06  
-> **작성자**: 01-architect  
+> **버전**: v3.0 (DQA-v2-007/013/011 반영 — §3 5권한 교체, §5/§7 tenant/contract 태깅, §10 번호 중복 해소)
+> **작성일**: 2026-04-16
+> **작성자**: 01-architect
 > **용도**: 프로토타입 및 테스트용 더미 데이터 생성 규칙
+
+---
+
+## 0. v2.0 신규 더미 데이터
+
+### 0.1 Tenant (3건)
+
+| id | slug | customer_name | customer_type | status | admin_email |
+|----|------|---------------|---------------|--------|-------------|
+| AD000001K3 | shinhan-card | 신한카드 | CORP | ACTIVE | admin@shinhancard.com |
+| AD000002L9 | shinhan-life | 신한라이프 | CORP | ACTIVE | admin@shinhanlife.com |
+| AD000003M2 | shinhan-internal | 신한DS 내부 | INTERNAL | ACTIVE | admin@shinhands.com |
+
+### 0.2 Contract (6건, 테넌트당 평균 2개)
+
+| code | tenant | name | type | currency | billing | status |
+|------|--------|------|------|----------|---------|--------|
+| SHC-2026-001 | shinhan-card | AWS 운영 환경 직계약 | DIRECT | KRW | MONTHLY | ACTIVE |
+| SHC-2026-002 | shinhan-card | AWS 분석 환경 MSP | MSP | KRW | MONTHLY | ACTIVE |
+| SHL-2026-001 | shinhan-life | AWS 통합 운영 | DIRECT | USD | MONTHLY | ACTIVE |
+| SHL-2025-007 | shinhan-life | AWS 신계약전용 (만료) | DIRECT | KRW | MONTHLY | EXPIRED |
+| SDS-2026-001 | shinhan-internal | 그룹 내부정산 | INTERNAL | KRW | QUARTERLY | ACTIVE |
+| SDS-2026-002 | shinhan-internal | 사내 개발환경 | INTERNAL | KRW | MONTHLY | DRAFT |
+
+### 0.3 CloudAccount (Payer, 8건)
+
+각 계약별 1~2개 Payer. provider=AWS 고정.
+
+| contract | payer_account_id (12자리) | name | effective_from | effective_to |
+|----------|---------------------------|------|----------------|--------------|
+| SHC-2026-001 | 100000000001 | SHC-PROD-Payer | 2026-01-01 | NULL |
+| SHC-2026-002 | 100000000002 | SHC-ANALYTICS-Payer | 2026-01-01 | NULL |
+| SHL-2026-001 | 200000000001 | SHL-Main-Payer | 2026-01-01 | NULL |
+| SHL-2025-007 | 200000000099 | SHL-Legacy-Payer | 2025-01-01 | 2025-12-31 |
+| SDS-2026-001 | 300000000001 | SDS-Group-Payer | 2026-01-01 | NULL |
+| SDS-2026-002 | 300000000002 | SDS-Dev-Payer | 2026-01-01 | NULL |
+| SHC-2026-001 | 100000000003 | SHC-DR-Payer | 2026-03-01 | NULL |
+| SHL-2026-001 | 200000000002 | SHL-Sub-Payer | 2026-02-01 | NULL |
+
+### 0.4 CloudSubAccount (Linked, 24건)
+
+각 Payer당 평균 3개 Linked Account. 명명 규칙: `{tenantSlug}-{purpose}-{env}` (예: `shinhan-card-was-prod`).
+
+### 0.5 TenantUserScope (60건)
+
+테넌트별 사용자별 SubAccount 권한. 일부 사용자는 한 계약 전체, 일부는 일부 SubAccount만 (마스킹 시나리오 검증용).
+
+### 0.6 User (테넌트 사용자 24건 + 시스템 사용자 4건)
+
+- SYS_ADMIN: `sysadmin@shinhands.com` (1명)
+- SYS_OPS: `sysops1`, `sysops2`, `sysops3` (3명)
+- 테넌트별: TENANT_ADMIN 1명 + TENANT_APPROVER 1명 + TENANT_USER 6명 (×3 = 24명)
+
+### 0.7 ApprovalRequest (5건, placeholder)
+
+PENDING 3건 + APPROVED 1건 + REJECTED 1건 (UI placeholder 검증용)
+
+### 0.8 AuditLog (300건+)
+
+LOGIN(100), UPLOAD(40), GENERATE_REPORT(60), DOWNLOAD(60), USER_CREATE(20), CONTRACT_UPDATE(20). tenantId 분포 균등.
+
+### 0.9 COST_DATA 변경
+
+기존 200~500행 × 24개월에 `tenant_id`, `contract_id`, `sub_account_id` 필드 추가. SubAccount별로 행 분배.
+
+---
 
 ---
 
@@ -33,30 +99,58 @@ MVP Top 6 리포트 템플릿 (OPEN-001 가정).
 
 ---
 
-## 3. User & Role (10건)
+## 3. User & Role (시스템 4 + 테넌트 24 = **28건**) — v3.0 DQA-v2-007 반영
 
-### Role (3건)
+### Role (5건) — v2.0 5권한
 
-| id | name | description |
-|----|------|-------------|
-| 1 | ROLE_OPS | Cloud Ops 담당자 |
-| 2 | ROLE_VIEWER | 경영진·실무자 |
-| 3 | ROLE_ADMIN | 시스템 관리자 |
+| id | name | scope | description |
+|----|------|-------|-------------|
+| 1 | ROLE_SYS_ADMIN | GLOBAL | 시스템 관리자 — 테넌트 CRUD, 시스템 사용자, 전역 감사 |
+| 2 | ROLE_SYS_OPS | GLOBAL | 시스템 이용자 — CUR 업로드·매핑·컬럼 별칭 (테넌트 CRUD 불가) |
+| 3 | ROLE_TENANT_ADMIN | TENANT | 테넌트 관리자 — 계약·사용자·권한·테넌트 감사 |
+| 4 | ROLE_TENANT_APPROVER | TENANT | 테넌트 승인자 — 향후 티켓 승인 placeholder |
+| 5 | ROLE_TENANT_USER | TENANT | 테넌트 이용자 — 권한받은 SubAccount 범위 조회·리포트·구독 |
 
-### User (10건)
+### System Users (4건 — tenant_id = NULL)
 
-| id | username | name | department | role | isActive |
-|----|----------|------|------------|------|----------|
-| 1 | admin | 관리자 | IT운영팀 | ADMIN | ✅ |
-| 2 | kimops | 김영수 | 클라우드운영팀 | OPS | ✅ |
-| 3 | leeops | 이지현 | 클라우드운영팀 | OPS | ✅ |
-| 4 | parkview | 박서연 | 경영기획실 | VIEWER | ✅ |
-| 5 | choiview | 최민준 | 재무팀 | VIEWER | ✅ |
-| 6 | jungview | 정수현 | 인프라팀 | VIEWER | ✅ |
-| 7 | kangview | 강도윤 | 개발1팀 | VIEWER | ✅ |
-| 8 | yoonview | 윤채원 | 개발2팀 | VIEWER | ✅ |
-| 9 | hwangview | 황지우 | 데이터팀 | VIEWER | ❌ |
-| 10 | sonadmin | 손하늘 | IT운영팀 | ADMIN | ✅ |
+| id | username | name | roles | isActive | 비고 |
+|----|----------|------|-------|----------|------|
+| 1 | sys-admin | 시스템관리자 | ROLE_SYS_ADMIN | ✅ | 초기 슈퍼어드민 |
+| 2 | sys-admin2 | 박동근 | ROLE_SYS_ADMIN | ✅ | 백업 관리자 |
+| 3 | sys-ops1 | 김영수 | ROLE_SYS_OPS | ✅ | CUR 업로드 담당 |
+| 4 | sys-ops2 | 이지현 | ROLE_SYS_OPS | ✅ | CUR 업로드 담당 |
+
+### Tenant Users (24건 — 3 테넌트 × 평균 8명) — tenant_id = §0.1의 각 테넌트
+
+| id | tenant | username | name | dept | title | roles | isActive |
+|----|--------|----------|------|------|-------|-------|----------|
+| 5 | shinhan-card (AD000001K3) | sh-admin | 박서연 | IT전략팀 | 부장 | TENANT_ADMIN | ✅ |
+| 6 | shinhan-card | sh-approver | 김민호 | 재무팀 | 차장 | TENANT_APPROVER | ✅ |
+| 7 | shinhan-card | sh-user1 | 정수현 | 인프라팀 | 대리 | TENANT_USER | ✅ |
+| 8 | shinhan-card | sh-user2 | 강도윤 | 개발1팀 | 과장 | TENANT_USER | ✅ |
+| 9 | shinhan-card | sh-user3 | 윤채원 | 개발2팀 | 대리 | TENANT_USER | ✅ |
+| 10 | shinhan-card | sh-user4 | 황지우 | 데이터팀 | 사원 | TENANT_USER | ❌ |
+| 11 | shinhan-card | sh-user5 | 손하늘 | 경영기획실 | 과장 | TENANT_USER | ✅ |
+| 12 | shinhan-card | sh-user6 | 조은지 | 보안팀 | 대리 | TENANT_USER | ✅ |
+| 13 | shinhan-life (AD000002L9) | sl-admin | 최민준 | IT운영팀 | 부장 | TENANT_ADMIN | ✅ |
+| 14 | shinhan-life | sl-approver | 한지호 | 경영관리팀 | 차장 | TENANT_APPROVER | ✅ |
+| 15 | shinhan-life | sl-user1 | 이수연 | 인프라팀 | 과장 | TENANT_USER | ✅ |
+| 16 | shinhan-life | sl-user2 | 장유진 | 개발팀 | 대리 | TENANT_USER | ✅ |
+| 17 | shinhan-life | sl-user3 | 박지성 | 운영팀 | 과장 | TENANT_USER | ✅ |
+| 18 | shinhan-life | sl-user4 | 송다은 | 재무팀 | 사원 | TENANT_USER | ✅ |
+| 19 | shinhan-life | sl-user5 | 김나래 | 보안팀 | 대리 | TENANT_USER | ✅ |
+| 20 | shinhan-life | sl-user6 | 이한결 | 데이터팀 | 과장 | TENANT_USER | ✅ |
+| 21 | shinhan-internal (AD000003M2) | ds-admin | 김도훈 | Cloud운영팀 | 팀장 | TENANT_ADMIN | ✅ |
+| 22 | shinhan-internal | ds-admin2 | 이서연 | Cloud운영팀 | 과장 | TENANT_ADMIN | ✅ |
+| 23 | shinhan-internal | ds-approver | 오승현 | 경영기획팀 | 차장 | TENANT_APPROVER | ✅ |
+| 24 | shinhan-internal | ds-user1 | 배성민 | Dev팀 | 대리 | TENANT_USER | ✅ |
+| 25 | shinhan-internal | ds-user2 | 신유리 | Dev팀 | 과장 | TENANT_USER | ✅ |
+| 26 | shinhan-internal | ds-user3 | 류호진 | Data팀 | 대리 | TENANT_USER | ✅ |
+| 27 | shinhan-internal | ds-user4 | 문아영 | Data팀 | 사원 | TENANT_USER | ✅ |
+| 28 | shinhan-internal | ds-user5 | 임주원 | Sec팀 | 과장 | TENANT_USER | ✅ |
+
+> **UK**: (tenant_id, username), (tenant_id, email) — 테넌트 간 동일 username/email 공존 허용
+> **TENANT_USER_SCOPE**: §0.5의 60건 권한 부여 규칙과 일치 — ADMIN/APPROVER는 일반적으로 전 SubAccount, USER는 부서에 해당하는 SubAccount만.
 
 ---
 
@@ -93,38 +187,40 @@ MVP Top 6 리포트 템플릿 (OPEN-001 가정).
 
 ---
 
-## 5. Subscriber (50건+)
+## 5. Subscriber (60건+) — v3.0 DQA-v2-013 반영
 
 ### 생성 규칙
 
-- **부서 분포**: 경영기획실 8명, 재무팀 10명, 클라우드운영팀 5명, 인프라팀 8명, 개발1팀 7명, 개발2팀 6명, 데이터팀 6명
-- **활성/비활성**: 활성 42명, 비활성 8명 (퇴사·부서이동)
-- **계정 범위**: 전체(null) 15명, 특정 계정 35명
-- **이메일 형식**: `{성}{이름영문}@shinhan-ds.com`
+- **테넌트 분포**: shinhan-card 24명, shinhan-life 22명, shinhan-internal 14명
+- **계약 분포**: 각 테넌트의 Contract 6건에 평균 10명씩 분산 (UK=(tenant_id, contract_id, email))
+- **활성/비활성**: 활성 50명, 비활성 10명
+- **계정 범위**: account_scope NULL = 계약 전체 구독, 아니면 JSON 배열로 SubAccount ID 나열
+- **관리자**: managed_by는 해당 테넌트의 TENANT_ADMIN 사용자 ID
 
 ### 샘플 데이터 (발췌)
 
-| id | name | email | department | accountScope | isActive |
-|----|------|-------|------------|-------------|----------|
-| 1 | 김태호 | kimth@shinhan-ds.com | 경영기획실 | null (전체) | ✅ |
-| 2 | 이수진 | leesj@shinhan-ds.com | 재무팀 | ACC-FINANCE-01 | ✅ |
-| 3 | 박준혁 | parkjh@shinhan-ds.com | 인프라팀 | ACC-INFRA-01 | ✅ |
-| ... | ... | ... | ... | ... | ... |
-| 45 | 정유나 | jungyn@shinhan-ds.com | 개발1팀 | ACC-DEV-01 | ✅ |
-| 48 | 한승우 | hansw@shinhan-ds.com | 데이터팀 | ACC-DATA-01 | ❌ |
-| 50 | 조민서 | choms@shinhan-ds.com | 경영기획실 | null (전체) | ❌ |
+| id | tenant_id | contract_id | name | email | dept | account_scope | isActive |
+|----|-----------|-------------|------|-------|------|--------------|----------|
+| 1 | AD000001K3 | SHC-2026-001 | 김태호 | kimth@shcard.co.kr | 경영기획실 | null (계약전체) | ✅ |
+| 2 | AD000001K3 | SHC-2026-001 | 이수진 | leesj@shcard.co.kr | 재무팀 | `["csa-12","csa-13"]` | ✅ |
+| 3 | AD000001K3 | SHC-2026-002 | 박준혁 | parkjh@shcard.co.kr | 인프라팀 | `["csa-18"]` | ✅ |
+| 25 | AD000002L9 | SHL-2026-001 | 박민정 | parkmj@shinhanlife.co.kr | 경영관리팀 | null | ✅ |
+| 47 | AD000003M2 | SDS-2026-001 | 정유나 | jungyn@shinhan-internal.co.kr | Dev팀 | `["csa-45"]` | ✅ |
+| 55 | AD000003M2 | SDS-2026-002 | 한승우 | hansw@shinhan-internal.co.kr | Data팀 | `["csa-50"]` | ❌ |
+| 60 | AD000001K3 | SHC-2026-003 | 조민서 | choms@shcard.co.kr | 경영기획실 | null | ❌ |
 
-### 부서별 계정 범위 매핑
+### 테넌트·계약·부서별 범위 매핑 규칙
 
-| department | accountScope 패턴 |
-|------------|------------------|
-| 경영기획실 | null (전체 열람) |
-| 재무팀 | ACC-FINANCE-01, ACC-FINANCE-02 |
-| 클라우드운영팀 | null (전체 열람) |
-| 인프라팀 | ACC-INFRA-01, ACC-INFRA-02 |
-| 개발1팀 | ACC-DEV-01 |
-| 개발2팀 | ACC-DEV-02 |
-| 데이터팀 | ACC-DATA-01 |
+| 부서 유형 | account_scope 패턴 |
+|----------|------------------|
+| 경영기획실 / 경영관리팀 | null (계약 전체 열람) |
+| 재무팀 | 해당 테넌트의 재무 관련 SubAccount (JSON 배열) |
+| 운영·Cloud운영팀 | null (계약 전체) |
+| 인프라·운영팀 | 인프라 SubAccount |
+| 개발팀 | 개발 Prod/Dev SubAccount 1~2건 |
+| 데이터팀 | 분석 SubAccount |
+
+> **UK 검증**: (AD000001K3, SHC-2026-001, kimth@shcard.co.kr)와 (AD000002L9, SHL-2026-001, kimth@shinhanlife.co.kr)는 공존 가능.
 
 ---
 
@@ -160,25 +256,30 @@ MVP Top 6 리포트 템플릿 (OPEN-001 가정).
 
 ---
 
-## 7. DownloadLog (200건+)
+## 7. DownloadLog (250건+) — v3.0 DQA-v2-013 반영
 
 ### 생성 규칙
 
 - **기간**: 2024년 5월 ~ 2026년 3월
-- **역할 분포**: OPS 80건, VIEWER 100건, ADMIN 20건
-- **리포트 분포**: R01(요약) 60건, R02~R05 각 25건, R06(통합) 40건
+- **tenant_id 분포**: 3개 테넌트에 120 / 90 / 40건 비율 (규모 반영)
+- **역할 분포 (v2.0 5권한)**: TENANT_ADMIN 60건, TENANT_APPROVER 20건, TENANT_USER 150건, SYS_ADMIN 15건, SYS_OPS 5건
+- **리포트 분포**: R01(요약) 80건, R02~R05 각 30건, R06(통합) 50건
 - **시간대 분포**: 09:00~12:00 (40%), 13:00~18:00 (50%), 기타 (10%)
-- **IP**: 내부망 192.168.x.x 패턴
+- **IP**: 내부망 192.168.x.x / 10.x.x.x 패턴
 
 ### 샘플 데이터 (발췌)
 
-| id | reportFileId | downloadedBy | ipAddress | downloadedAt |
-|----|-------------|-------------|-----------|-------------|
-| 1 | 1 | 2 | 192.168.1.101 | 2024.05.12 10:23 |
-| 2 | 1 | 4 | 192.168.1.205 | 2024.05.12 14:15 |
-| ... | ... | ... | ... | ... |
-| 150 | 18 | 5 | 192.168.2.88 | 2025.11.15 09:45 |
-| 200 | 22 | 2 | 192.168.1.101 | 2026.03.14 11:30 |
+| id | tenant_id | report_file_id | downloaded_by | ip_address | downloaded_at |
+|----|-----------|---------------|--------------|-----------|-------------|
+| 1 | AD000001K3 | 1 | 5 (sh-admin) | 192.168.1.101 | 2024.05.12 10:23 |
+| 2 | AD000001K3 | 1 | 7 (sh-user1) | 192.168.1.205 | 2024.05.12 14:15 |
+| 12 | AD000002L9 | 8 | 13 (sl-admin) | 10.10.2.33 | 2024.10.15 11:02 |
+| 150 | AD000001K3 | 18 | 8 (sh-user2) | 192.168.2.88 | 2025.11.15 09:45 |
+| 200 | AD000003M2 | 22 | 21 (ds-admin) | 10.20.3.17 | 2026.02.14 11:30 |
+| 245 | NULL | 22 | 3 (sys-ops1) | 10.30.1.5 | 2026.03.14 16:10 |
+
+> **주의**: SYS_* 사용자의 다운로드는 tenant_id가 해당 리포트의 테넌트 값으로 채워짐(감사 명확성). `downloaded_by`의 user가 tenant_id NULL이어도, 이 로그의 tenant_id는 대상 리포트의 테넌트.
+> `ID 245`처럼 SYS_OPS가 특정 테넌트 리포트 다운로드 시에도 tenant_id가 해당 테넌트로 기록되고 AUDIT_LOG에도 동시 기록.
 
 ---
 
@@ -289,20 +390,25 @@ MVP Top 6 리포트 템플릿 (OPEN-001 가정).
 
 ---
 
-## 10. 데이터 생성 우선순위
+## 11. 데이터 생성 우선순위 — v3.0 DQA-v2-011 반영 (§10 번호 중복 해소)
 
 | 순위 | 데이터 | 필요 시점 | 건수 |
 |------|--------|----------|------|
-| 1 | ReportTemplate | 프로토타입 즉시 | 6건 |
-| 2 | User & Role | 프로토타입 즉시 | 10건 + 3건 |
-| 3 | UploadBatch + Sheet | 프로토타입 즉시 | 24건+ |
-| **4** | **COST_DATA** | **프로토타입 즉시 (대시보드·리포트)** | **8,000건+** |
-| 5 | Subscriber | 구독 관리 화면 | 50건+ |
-| 6 | SubscriptionLog | 구독 관리 화면 | 100건+ |
-| 7 | DownloadLog | Phase 2 (Audit) | 200건+ |
-| 8 | ColumnAlias | 업로드 검증 | 32건 |
-| 9 | 원천 엑셀 데이터 | 업로드 테스트 | 24개월분 |
+| 1 | Tenant / Contract / CloudAccount / SubAccount | 프로토타입 즉시 | 3 / 6 / 8 / 24 |
+| 2 | Role (5권한) + User (28) | 프로토타입 즉시 | 5 + 28 |
+| 3 | TenantUserScope | 프로토타입 즉시 | 60 |
+| 4 | ReportTemplate | 프로토타입 즉시 | 6건 |
+| 5 | UploadBatch + Sheet | 프로토타입 즉시 | 24건+ |
+| **6** | **COST_DATA (tenant/contract/sub 태깅)** | **프로토타입 즉시** | **8,000건+** |
+| 7 | Subscriber | 구독 관리 화면 | 60건+ |
+| 8 | SubscriptionLog | 구독 관리 화면 | 100건+ |
+| 9 | DownloadLog | Phase 2 (Audit) | 250건+ |
+| 10 | ColumnAlias (공통/테넌트) | 업로드 검증 | 32건 |
+| 11 | AuditLog | 감사 화면 | 300건+ |
+| 12 | ApprovalRequest (placeholder) | 승인함 화면 | 5건 |
+| 13 | 원천 엑셀 데이터 | 업로드 테스트 | 24개월분 |
 
 ---
 
 *본 문서는 프로토타입 및 QA 테스트용 더미 데이터 생성 규칙입니다. 모든 데이터는 가상이며 실제 기업·개인 정보와 무관합니다.*
+*v3.0: DQA-v2-007/013/011 반영 — §3 5권한·28사용자로 교체, §5 Subscriber에 tenant_id/contract_id, §7 DownloadLog 5권한 분포, §11 번호 중복 해소.*

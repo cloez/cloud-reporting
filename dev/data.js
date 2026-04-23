@@ -3,32 +3,255 @@
  * 신한DS 형식, 한국어, KRW 통화
  */
 
-// ── 역할 ──
+// ══════════════════════════════════════════
+// v2 멀티테넌트 시드 — design v3.0 (dummy-data-spec §0.1~§0.5, §3)
+// ══════════════════════════════════════════
+
+// ── 테넌트 (3건) — §0.1 정본
+//   고객 마스터 속성 확장 (사용자 피드백 반영):
+//     customerType : CORP(법인) / INDIV(개인) / INTERNAL(내부조직) / GROUP(그룹사)
+//     status       : ACTIVE(활성) / DORMANT(휴면) / TERMINATED(해지) / SUSPENDED(정지)
+//   bizRegNo     : 사업자등록번호 (10자리, 하이픈 표기)
+//   corpRegNo    : 법인등록번호 (13자리, 하이픈 표기)
+//   representative : 대표자명
+//   industry / businessType : 업종 / 업태
+//   joinDate / terminateDate : 가입일 / 해지일 (해지 전이면 null)
+const TENANTS = [
+  {
+    id: 'AD000001K3', slug: 'shinhan-card', name: '신한카드',
+    customerType: 'CORP', status: 'ACTIVE',
+    bizRegNo: '202-81-08953', corpRegNo: '110111-0481533',
+    representative: '문동권',
+    industry: '여신전문금융업', businessType: '신용카드업',
+    joinDate: '2025-12-15', terminateDate: null,
+    adminEmail: 'admin@shinhancard.com', createdAt: '2025-12-15T09:00:00',
+  },
+  {
+    id: 'AD000002L9', slug: 'shinhan-life', name: '신한라이프',
+    customerType: 'CORP', status: 'ACTIVE',
+    bizRegNo: '108-81-15659', corpRegNo: '110111-0009482',
+    representative: '이영종',
+    industry: '보험업', businessType: '생명보험',
+    joinDate: '2025-12-20', terminateDate: null,
+    adminEmail: 'admin@shinhanlife.com', createdAt: '2025-12-20T09:00:00',
+  },
+  {
+    id: 'AD000003M2', slug: 'shinhan-internal', name: '신한DS 내부',
+    customerType: 'INTERNAL', status: 'ACTIVE',
+    bizRegNo: '214-81-37934', corpRegNo: '110111-1234567',
+    representative: '조경선',
+    industry: '소프트웨어 개발 및 공급', businessType: '시스템 통합',
+    joinDate: '2026-01-05', terminateDate: null,
+    adminEmail: 'admin@shinhands.com', createdAt: '2026-01-05T09:00:00',
+  },
+];
+
+// ── 계약 (6건) — §0.2 SHC/SHL/SDS 접두사
+//   계약 마스터 속성 확장 (사용자 피드백 반영):
+//     type            : DIRECT(직접계약) / AGENT(대행) / MSP(MSP) / RESELL(리셀링) / INTERNAL(그룹내부정산)
+//     currency        : KRW / USD
+//     billing         : MONTHLY(월) / QUARTERLY(분기) / SEMIANNUAL(반기) / YEARLY(연)
+//     status          : ACTIVE / EXPIRED / DRAFT
+//     taxType         : VAT_INCLUDED(부가세 포함) / VAT_EXCLUDED(별도) / TAX_FREE(면세)
+//     paymentTerm     : POSTPAID(후불) / PREPAID(선불) / MONTH_END(월말정산)
+//     invoiceIssueDay : 청구서 발행 기준일 (매월 1~28일 정수)
+//     paymentDueDays  : 납부기한 (청구일 기준 + N일)
+const CONTRACTS = [
+  { id: 1, code: 'SHC-2026-001', tenantId: 'AD000001K3', tenantSlug: 'shinhan-card', name: 'AWS 운영 환경 직계약', type: 'DIRECT',   currency: 'KRW', billing: 'MONTHLY',    status: 'ACTIVE',  effectiveFrom: '2026-01-01', effectiveTo: null,
+    taxType: 'VAT_EXCLUDED', paymentTerm: 'POSTPAID',  invoiceIssueDay: 5,  paymentDueDays: 30 },
+  { id: 2, code: 'SHC-2026-002', tenantId: 'AD000001K3', tenantSlug: 'shinhan-card', name: 'AWS 분석 환경 MSP',   type: 'MSP',      currency: 'KRW', billing: 'MONTHLY',    status: 'ACTIVE',  effectiveFrom: '2026-01-01', effectiveTo: null,
+    taxType: 'VAT_INCLUDED', paymentTerm: 'POSTPAID',  invoiceIssueDay: 10, paymentDueDays: 30 },
+  { id: 3, code: 'SHL-2026-001', tenantId: 'AD000002L9', tenantSlug: 'shinhan-life', name: 'AWS 통합 운영',       type: 'DIRECT',   currency: 'USD', billing: 'MONTHLY',    status: 'ACTIVE',  effectiveFrom: '2026-01-01', effectiveTo: null,
+    taxType: 'VAT_EXCLUDED', paymentTerm: 'POSTPAID',  invoiceIssueDay: 5,  paymentDueDays: 45 },
+  { id: 4, code: 'SHL-2025-007', tenantId: 'AD000002L9', tenantSlug: 'shinhan-life', name: 'AWS 신계약전용 (만료)', type: 'AGENT',  currency: 'KRW', billing: 'MONTHLY',    status: 'EXPIRED', effectiveFrom: '2025-01-01', effectiveTo: '2025-12-31',
+    taxType: 'VAT_INCLUDED', paymentTerm: 'MONTH_END', invoiceIssueDay: 1,  paymentDueDays: 30 },
+  { id: 5, code: 'SDS-2026-001', tenantId: 'AD000003M2', tenantSlug: 'shinhan-internal', name: '그룹 내부정산',     type: 'INTERNAL', currency: 'KRW', billing: 'QUARTERLY',  status: 'ACTIVE',  effectiveFrom: '2026-01-01', effectiveTo: null,
+    taxType: 'TAX_FREE',     paymentTerm: 'MONTH_END', invoiceIssueDay: 1,  paymentDueDays: 60 },
+  { id: 6, code: 'SDS-2026-002', tenantId: 'AD000003M2', tenantSlug: 'shinhan-internal', name: '사내 개발환경',     type: 'RESELL',   currency: 'KRW', billing: 'MONTHLY',    status: 'DRAFT',   effectiveFrom: '2026-02-01', effectiveTo: null,
+    taxType: 'VAT_EXCLUDED', paymentTerm: 'PREPAID',   invoiceIssueDay: 25, paymentDueDays: 15 },
+];
+
+// ── Cloud Account (Payer, 8건) — §0.3 ──
+// ── Cloud Accounts (Payer/Billing 레벨) ──
+// provider별 상위 계정 명칭: AWS=Management Account, AZURE=Billing Account,
+//   GCP=Billing Account, NHN=Organization, OCI=Tenancy, KT=Account, NBP=Master Account
+let CLOUD_ACCOUNTS = [
+  { id: 1, contractId: 1, payerAccountId: '100000000001', name: 'SHC-PROD-Payer',      provider: 'AWS',   status: 'ACTIVE',   effectiveFrom: '2026-01-01', effectiveTo: null,         description: '신한카드 운영 환경 AWS Management Account' },
+  { id: 2, contractId: 2, payerAccountId: '100000000002', name: 'SHC-ANALYTICS-Payer', provider: 'AWS',   status: 'ACTIVE',   effectiveFrom: '2026-01-01', effectiveTo: null,         description: '신한카드 분석 환경 MSP 계약' },
+  { id: 3, contractId: 3, payerAccountId: '200000000001', name: 'SHL-Main-Payer',       provider: 'AWS',   status: 'ACTIVE',   effectiveFrom: '2026-01-01', effectiveTo: null,         description: '신한라이프 메인 AWS' },
+  { id: 4, contractId: 4, payerAccountId: '200000000099', name: 'SHL-Legacy-Payer',     provider: 'AWS',   status: 'EXPIRED',  effectiveFrom: '2025-01-01', effectiveTo: '2025-12-31', description: '신한라이프 구형 계정 (만료)' },
+  { id: 5, contractId: 5, payerAccountId: '300000000001', name: 'SDS-Group-Payer',      provider: 'AWS',   status: 'ACTIVE',   effectiveFrom: '2026-01-01', effectiveTo: null,         description: '신한DS 그룹 내부정산' },
+  { id: 6, contractId: 6, payerAccountId: '300000000002', name: 'SDS-Dev-Payer',        provider: 'AWS',   status: 'ACTIVE',   effectiveFrom: '2026-02-01', effectiveTo: null,         description: '신한DS 사내 개발 환경' },
+  { id: 7, contractId: 1, payerAccountId: '100000000003', name: 'SHC-DR-Payer',         provider: 'AWS',   status: 'ACTIVE',   effectiveFrom: '2026-03-01', effectiveTo: null,         description: '신한카드 DR 리전 계정' },
+  { id: 8, contractId: 3, payerAccountId: '200000000002', name: 'SHL-Sub-Payer',        provider: 'AWS',   status: 'ACTIVE',   effectiveFrom: '2026-02-01', effectiveTo: null,         description: '신한라이프 보조 계정' },
+  { id: 9, contractId: 1, payerAccountId: 'shc-azure-ea-001',  name: 'SHC-Azure-EA',   provider: 'AZURE', status: 'ACTIVE',   effectiveFrom: '2026-01-01', effectiveTo: null,         description: '신한카드 Azure EA Billing Account' },
+  { id: 10, contractId: 3, payerAccountId: 'shl-gcp-ba-001',   name: 'SHL-GCP-Billing', provider: 'GCP',   status: 'ACTIVE',   effectiveFrom: '2026-01-01', effectiveTo: null,         description: '신한라이프 GCP Billing Account' },
+  { id: 11, contractId: 5, payerAccountId: 'sds-nhn-org-001',  name: 'SDS-NHN-Org',    provider: 'NHN',   status: 'ACTIVE',   effectiveFrom: '2026-03-01', effectiveTo: null,         description: '신한DS NHN Cloud Organization' },
+];
+
+// ── Cloud Sub-Accounts (Linked/Subscription/Project 레벨) ──
+// provider별 하위 계정 명칭: AWS=Linked Account, AZURE=Subscription,
+//   GCP=Project, NHN=Project, OCI=Compartment, KT=Zone, NBP=Sub Account
+let CLOUD_SUB_ACCOUNTS = (() => {
+  const purposes = ['was', 'rds', 'analytics', 'dev', 'data', 'sec'];
+  const envs = ['prod', 'stg', 'dev'];
+  const subs = [];
+  let id = 1;
+  // AWS 계정만 자동 생성 (id 1~8)
+  CLOUD_ACCOUNTS.filter(p => p.provider === 'AWS').forEach((payer) => {
+    const contract = CONTRACTS.find(c => c.id === payer.contractId);
+    if (!contract) return;
+    const tenantSlug = contract.tenantSlug.replace('shinhan-', 'sh-');
+    for (let i = 0; i < 3; i++) {
+      const purpose = purposes[(payer.id + i) % purposes.length];
+      const env = envs[i % envs.length];
+      subs.push({
+        id: `csa-${String(id).padStart(2, '0')}`,
+        numericId: id,
+        payerId: payer.id,
+        contractId: payer.contractId,
+        tenantId: contract.tenantId,
+        provider: payer.provider,
+        accountId: `${payer.payerAccountId.slice(0, 9)}${String(id).padStart(3, '0')}`,
+        name: `${tenantSlug}-${purpose}-${env}`,
+        purpose,
+        env,
+        status: 'ACTIVE',
+        description: '',
+        tags: '',
+      });
+      id++;
+    }
+  });
+  // Azure Subscription 샘플 (SHC Azure EA 하위)
+  subs.push({ id: 'csa-25', numericId: 25, payerId: 9, contractId: 1, tenantId: 'AD000001K3', provider: 'AZURE', accountId: 'sub-shc-prod-001', name: 'SHC-Azure-Prod-Sub', purpose: 'prod', env: 'prod', status: 'ACTIVE', description: '운영 Subscription', tags: 'env:prod' });
+  subs.push({ id: 'csa-26', numericId: 26, payerId: 9, contractId: 1, tenantId: 'AD000001K3', provider: 'AZURE', accountId: 'sub-shc-dev-001',  name: 'SHC-Azure-Dev-Sub',  purpose: 'dev',  env: 'dev',  status: 'ACTIVE', description: '개발 Subscription', tags: 'env:dev' });
+  // GCP Project 샘플 (SHL GCP Billing 하위)
+  subs.push({ id: 'csa-27', numericId: 27, payerId: 10, contractId: 3, tenantId: 'AD000002K3', provider: 'GCP', accountId: 'shl-gcp-proj-data', name: 'SHL-GCP-Data-Project', purpose: 'data', env: 'prod', status: 'ACTIVE', description: 'GCP 데이터 분석 프로젝트', tags: 'team:data' });
+  // NHN Project 샘플 (SDS NHN 하위)
+  subs.push({ id: 'csa-28', numericId: 28, payerId: 11, contractId: 5, tenantId: 'AD000003K3', provider: 'NHN', accountId: 'sds-nhn-proj-01', name: 'SDS-NHN-Dev-Project', purpose: 'dev', env: 'dev', status: 'ACTIVE', description: 'NHN 개발 프로젝트', tags: 'env:dev' });
+  return subs;
+})();
+
+// ── 5권한 ROLES ──
 const ROLES = [
-  { id: 1, name: 'ROLE_ADMIN', label: '시스템 관리자' },
-  { id: 2, name: 'ROLE_APPROVER', label: '승인자' },
-  { id: 3, name: 'ROLE_USER', label: '사용자' },
+  { id: 1, name: 'ROLE_SYS_ADMIN', label: '시스템 관리자', scope: 'GLOBAL' },
+  { id: 2, name: 'ROLE_SYS_OPS', label: '시스템 운영자', scope: 'GLOBAL' },
+  { id: 3, name: 'ROLE_TENANT_ADMIN', label: '테넌트 관리자', scope: 'TENANT' },
+  { id: 4, name: 'ROLE_TENANT_APPROVER', label: '테넌트 승인자', scope: 'TENANT' },
+  { id: 5, name: 'ROLE_TENANT_USER', label: '테넌트 사용자', scope: 'TENANT' },
 ];
 
-// ── 역할 라벨 매핑 ──
-const ROLE_LABELS = { ROLE_ADMIN: '시스템 관리자', ROLE_APPROVER: '승인자', ROLE_USER: '사용자' };
+// ── 역할 라벨 매핑 (5권한 + v1 호환) ──
+const ROLE_LABELS = {
+  ROLE_SYS_ADMIN: '시스템 관리자',
+  ROLE_SYS_OPS: '시스템 운영자',
+  ROLE_TENANT_ADMIN: '테넌트 관리자',
+  ROLE_TENANT_APPROVER: '테넌트 승인자',
+  ROLE_TENANT_USER: '테넌트 사용자',
+  // v1 호환 (구 코드가 참조할 수 있음)
+  ROLE_ADMIN: '시스템 관리자',
+  ROLE_APPROVER: '승인자',
+  ROLE_USER: '사용자',
+  ROLE_OPS: '운영자',
+  ROLE_VIEWER: '조회자',
+};
+// 테넌트 내부 화면용 — "테넌트" 접두사 제거 (사용자에게 자기가 테넌트인 건 자명)
+const ROLE_LABELS_SHORT = {
+  ...ROLE_LABELS,
+  ROLE_TENANT_ADMIN: '관리자',
+  ROLE_TENANT_APPROVER: '승인자',
+  ROLE_TENANT_USER: '사용자',
+};
 
-// ── 사용자 (10명) ──
+// ── 사용자 (28명: 시스템 4 + 테넌트 24) — §3 정본 ──
 const USERS = [
-  { id: 1, username: 'admin', name: '관리자', phone: '010-1234-5678', email: 'admin@shinhan-ds.com', department: '시스템운영팀', roles: ['ROLE_ADMIN'], isActive: true, createdAt: '2025-01-02T09:00:00', pwResetRequested: false },
-  { id: 2, username: 'kimops', name: '김운영', phone: '010-2345-6789', email: 'kimops@shinhan-ds.com', department: '클라우드운영팀', roles: ['ROLE_APPROVER'], isActive: true, createdAt: '2025-03-15T09:00:00', pwResetRequested: false },
-  { id: 3, username: 'leeops', name: '이관리', phone: '010-3456-7890', email: 'leeops@shinhan-ds.com', department: '클라우드운영팀', roles: ['ROLE_USER'], isActive: true, createdAt: '2025-03-15T09:00:00', pwResetRequested: false },
-  { id: 4, username: 'parkview', name: '박경영', phone: '010-4567-8901', email: 'parkview@shinhan-ds.com', department: '경영기획실', roles: ['ROLE_APPROVER'], isActive: true, createdAt: '2025-04-01T09:00:00', pwResetRequested: false },
-  { id: 5, username: 'choiview', name: '최재무', phone: '010-5678-9012', email: 'choiview@shinhan-ds.com', department: '재무팀', roles: ['ROLE_USER'], isActive: true, createdAt: '2025-04-10T09:00:00', pwResetRequested: false },
-  { id: 6, username: 'jungview', name: '정인프라', phone: '010-6789-0123', email: 'jungview@shinhan-ds.com', department: '인프라팀', roles: ['ROLE_USER'], isActive: true, createdAt: '2025-05-20T09:00:00', pwResetRequested: false },
-  { id: 7, username: 'kangview', name: '강개발', phone: '010-7890-1234', email: 'kangview@shinhan-ds.com', department: '개발1팀', roles: ['ROLE_USER'], isActive: true, createdAt: '2025-06-01T09:00:00', pwResetRequested: false },
-  { id: 8, username: 'yoonview', name: '윤데이터', phone: '010-8901-2345', email: 'yoonview@shinhan-ds.com', department: '데이터팀', roles: ['ROLE_USER'], isActive: true, createdAt: '2025-07-15T09:00:00', pwResetRequested: true },
-  { id: 9, username: 'hwangview', name: '황보안', phone: '010-9012-3456', email: 'hwangview@shinhan-ds.com', department: '인프라팀', roles: ['ROLE_USER'], isActive: false, createdAt: '2025-08-01T09:00:00', pwResetRequested: false },
-  { id: 10, username: 'sonadmin', name: '손관리', phone: '010-0123-4567', email: 'sonadmin@shinhan-ds.com', department: '시스템운영팀', roles: ['ROLE_ADMIN'], isActive: true, createdAt: '2025-01-02T09:00:00', pwResetRequested: false },
+  // 시스템 사용자 4명 (tenantId = null)
+  { id: 1, username: 'sys-admin', name: '시스템관리자', phone: '010-1000-0001', email: 'sysadmin@shinhands.com', department: '시스템운영팀', roles: ['ROLE_SYS_ADMIN'], tenantId: null, isActive: true, createdAt: '2025-12-01T09:00:00', pwResetRequested: false },
+  { id: 2, username: 'sys-admin2', name: '박동근', phone: '010-1000-0002', email: 'parkdg@shinhands.com', department: '시스템운영팀', roles: ['ROLE_SYS_ADMIN'], tenantId: null, isActive: true, createdAt: '2025-12-01T09:00:00', pwResetRequested: false },
+  { id: 3, username: 'sys-ops1', name: '김영수', phone: '010-1000-0003', email: 'kimys@shinhands.com', department: 'CUR운영팀', roles: ['ROLE_SYS_OPS'], tenantId: null, isActive: true, createdAt: '2025-12-10T09:00:00', pwResetRequested: false },
+  { id: 4, username: 'sys-ops2', name: '이지현', phone: '010-1000-0004', email: 'leejh@shinhands.com', department: 'CUR운영팀', roles: ['ROLE_SYS_OPS'], tenantId: null, isActive: true, createdAt: '2025-12-10T09:00:00', pwResetRequested: false },
+  // shinhan-card (AD000001K3) 8명
+  { id: 5, username: 'sh-admin', name: '박서연', phone: '010-2001-0001', email: 'parksy@shcard.co.kr', department: 'IT전략팀', title: '부장', roles: ['ROLE_TENANT_ADMIN'], tenantId: 'AD000001K3', isActive: true, createdAt: '2026-01-05T09:00:00', pwResetRequested: false },
+  { id: 6, username: 'sh-approver', name: '김민호', phone: '010-2001-0002', email: 'kimmh@shcard.co.kr', department: '재무팀', title: '차장', roles: ['ROLE_TENANT_APPROVER'], tenantId: 'AD000001K3', isActive: true, createdAt: '2026-01-08T09:00:00', pwResetRequested: false },
+  { id: 7, username: 'sh-user1', name: '정수현', phone: '010-2001-0003', email: 'jungsh@shcard.co.kr', department: '인프라팀', title: '대리', roles: ['ROLE_TENANT_USER'], tenantId: 'AD000001K3', isActive: true, createdAt: '2026-01-10T09:00:00', pwResetRequested: false },
+  { id: 8, username: 'sh-user2', name: '강도윤', phone: '010-2001-0004', email: 'kangdy@shcard.co.kr', department: '개발1팀', title: '과장', roles: ['ROLE_TENANT_USER'], tenantId: 'AD000001K3', isActive: true, createdAt: '2026-01-10T09:00:00', pwResetRequested: false },
+  { id: 9, username: 'sh-user3', name: '윤채원', phone: '010-2001-0005', email: 'yooncw@shcard.co.kr', department: '개발2팀', title: '대리', roles: ['ROLE_TENANT_USER'], tenantId: 'AD000001K3', isActive: true, createdAt: '2026-01-12T09:00:00', pwResetRequested: false },
+  { id: 10, username: 'sh-user4', name: '황지우', phone: '010-2001-0006', email: 'hwangjw@shcard.co.kr', department: '데이터팀', title: '사원', roles: ['ROLE_TENANT_USER'], tenantId: 'AD000001K3', isActive: false, createdAt: '2026-01-15T09:00:00', pwResetRequested: false },
+  { id: 11, username: 'sh-user5', name: '손하늘', phone: '010-2001-0007', email: 'sonhn@shcard.co.kr', department: '경영기획실', title: '과장', roles: ['ROLE_TENANT_USER'], tenantId: 'AD000001K3', isActive: true, createdAt: '2026-01-18T09:00:00', pwResetRequested: false },
+  { id: 12, username: 'sh-user6', name: '조은지', phone: '010-2001-0008', email: 'choej@shcard.co.kr', department: '보안팀', title: '대리', roles: ['ROLE_TENANT_USER'], tenantId: 'AD000001K3', isActive: true, createdAt: '2026-01-20T09:00:00', pwResetRequested: true },
+  // shinhan-life (AD000002L9) 8명
+  { id: 13, username: 'sl-admin', name: '최민준', phone: '010-3001-0001', email: 'choimj@shinhanlife.co.kr', department: 'IT운영팀', title: '부장', roles: ['ROLE_TENANT_ADMIN'], tenantId: 'AD000002L9', isActive: true, createdAt: '2026-01-06T09:00:00', pwResetRequested: false },
+  { id: 14, username: 'sl-approver', name: '한지호', phone: '010-3001-0002', email: 'hanjh@shinhanlife.co.kr', department: '경영관리팀', title: '차장', roles: ['ROLE_TENANT_APPROVER'], tenantId: 'AD000002L9', isActive: true, createdAt: '2026-01-08T09:00:00', pwResetRequested: false },
+  { id: 15, username: 'sl-user1', name: '이수연', phone: '010-3001-0003', email: 'leesy@shinhanlife.co.kr', department: '인프라팀', title: '과장', roles: ['ROLE_TENANT_USER'], tenantId: 'AD000002L9', isActive: true, createdAt: '2026-01-10T09:00:00', pwResetRequested: false },
+  { id: 16, username: 'sl-user2', name: '장유진', phone: '010-3001-0004', email: 'jangyj@shinhanlife.co.kr', department: '개발팀', title: '대리', roles: ['ROLE_TENANT_USER'], tenantId: 'AD000002L9', isActive: true, createdAt: '2026-01-10T09:00:00', pwResetRequested: false },
+  { id: 17, username: 'sl-user3', name: '박지성', phone: '010-3001-0005', email: 'parkjs@shinhanlife.co.kr', department: '운영팀', title: '과장', roles: ['ROLE_TENANT_USER'], tenantId: 'AD000002L9', isActive: true, createdAt: '2026-01-12T09:00:00', pwResetRequested: false },
+  { id: 18, username: 'sl-user4', name: '송다은', phone: '010-3001-0006', email: 'songde@shinhanlife.co.kr', department: '재무팀', title: '사원', roles: ['ROLE_TENANT_USER'], tenantId: 'AD000002L9', isActive: true, createdAt: '2026-01-15T09:00:00', pwResetRequested: false },
+  { id: 19, username: 'sl-user5', name: '김나래', phone: '010-3001-0007', email: 'kimnr@shinhanlife.co.kr', department: '보안팀', title: '대리', roles: ['ROLE_TENANT_USER'], tenantId: 'AD000002L9', isActive: true, createdAt: '2026-01-18T09:00:00', pwResetRequested: false },
+  { id: 20, username: 'sl-user6', name: '이한결', phone: '010-3001-0008', email: 'leehk@shinhanlife.co.kr', department: '데이터팀', title: '과장', roles: ['ROLE_TENANT_USER'], tenantId: 'AD000002L9', isActive: true, createdAt: '2026-01-20T09:00:00', pwResetRequested: false },
+  // shinhan-internal (AD000003M2) 8명
+  { id: 21, username: 'ds-admin', name: '김도훈', phone: '010-4001-0001', email: 'kimdh@shinhan-internal.co.kr', department: 'Cloud운영팀', title: '팀장', roles: ['ROLE_TENANT_ADMIN'], tenantId: 'AD000003M2', isActive: true, createdAt: '2026-01-06T09:00:00', pwResetRequested: false },
+  { id: 22, username: 'ds-admin2', name: '이서연', phone: '010-4001-0002', email: 'leesy2@shinhan-internal.co.kr', department: 'Cloud운영팀', title: '과장', roles: ['ROLE_TENANT_ADMIN'], tenantId: 'AD000003M2', isActive: true, createdAt: '2026-01-08T09:00:00', pwResetRequested: false },
+  { id: 23, username: 'ds-approver', name: '오승현', phone: '010-4001-0003', email: 'ohsh@shinhan-internal.co.kr', department: '경영기획팀', title: '차장', roles: ['ROLE_TENANT_APPROVER'], tenantId: 'AD000003M2', isActive: true, createdAt: '2026-01-10T09:00:00', pwResetRequested: false },
+  { id: 24, username: 'ds-user1', name: '배성민', phone: '010-4001-0004', email: 'baesm@shinhan-internal.co.kr', department: 'Dev팀', title: '대리', roles: ['ROLE_TENANT_USER'], tenantId: 'AD000003M2', isActive: true, createdAt: '2026-01-12T09:00:00', pwResetRequested: false },
+  { id: 25, username: 'ds-user2', name: '신유리', phone: '010-4001-0005', email: 'shinyr@shinhan-internal.co.kr', department: 'Dev팀', title: '과장', roles: ['ROLE_TENANT_USER'], tenantId: 'AD000003M2', isActive: true, createdAt: '2026-01-12T09:00:00', pwResetRequested: false },
+  { id: 26, username: 'ds-user3', name: '류호진', phone: '010-4001-0006', email: 'ryuhj@shinhan-internal.co.kr', department: 'Data팀', title: '대리', roles: ['ROLE_TENANT_USER'], tenantId: 'AD000003M2', isActive: true, createdAt: '2026-01-15T09:00:00', pwResetRequested: false },
+  { id: 27, username: 'ds-user4', name: '문아영', phone: '010-4001-0007', email: 'moonay@shinhan-internal.co.kr', department: 'Data팀', title: '사원', roles: ['ROLE_TENANT_USER'], tenantId: 'AD000003M2', isActive: true, createdAt: '2026-01-18T09:00:00', pwResetRequested: false },
+  { id: 28, username: 'ds-user5', name: '임주원', phone: '010-4001-0008', email: 'limjw@shinhan-internal.co.kr', department: 'Sec팀', title: '과장', roles: ['ROLE_TENANT_USER'], tenantId: 'AD000003M2', isActive: true, createdAt: '2026-01-20T09:00:00', pwResetRequested: false },
 ];
 
-// ── 현재 로그인 사용자 (프로토타입용) ──
-const CURRENT_USER = USERS[1]; // kimops — ROLE_OPS
+// ── TENANT_USER_SCOPE — TENANT_USER가 가진 SubAccount 권한 (마스킹 시나리오용) ──
+// 규칙: ADMIN/APPROVER는 전체 SubAccount, USER는 부서/직무에 따라 일부만
+const TENANT_USER_SCOPES = (() => {
+  const scopes = [];
+  let id = 1;
+  USERS.forEach(u => {
+    if (!u.tenantId) return; // 시스템 사용자 제외
+    const tenantSubs = CLOUD_SUB_ACCOUNTS.filter(s => s.tenantId === u.tenantId);
+    const role = u.roles[0];
+    if (role === 'ROLE_TENANT_ADMIN' || role === 'ROLE_TENANT_APPROVER') {
+      // 전체 SubAccount 권한
+      tenantSubs.forEach(s => {
+        scopes.push({ id: id++, userId: u.id, tenantId: u.tenantId, subAccountId: s.id, scopeType: 'FULL' });
+      });
+    } else if (role === 'ROLE_TENANT_USER') {
+      // 사용자 ID 기반 결정적 일부 SubAccount 부여 (마스킹 시연 위해 약 50%)
+      const half = Math.max(1, Math.floor(tenantSubs.length / 2));
+      const start = (u.id % tenantSubs.length);
+      for (let i = 0; i < half; i++) {
+        const sub = tenantSubs[(start + i) % tenantSubs.length];
+        if (sub) scopes.push({ id: id++, userId: u.id, tenantId: u.tenantId, subAccountId: sub.id, scopeType: 'PARTIAL' });
+      }
+    }
+  });
+  return scopes;
+})();
+
+// ── 현재 로그인 사용자 (프로토타입용 — 빈 객체로 초기화 후 로그인 시 채움) ──
+const CURRENT_USER = { id: null, username: '', name: '', roles: [], tenantId: null, department: '', phone: '', email: '' };
+
+// ── 현재 컨텍스트 (라우팅으로 결정되는 테넌트/계약 컨텍스트) ──
+// variant: 'system' | 'tenant-admin' | 'tenant-user'
+// contractId: number | 'all' (전체 가상 컨텍스트)
+const CURRENT_CONTEXT = { variant: 'system', tenantId: null, tenantSlug: null, contractId: null };
+
+// ── 사용자 → tenant/scope 헬퍼 ──
+function getUserTenant(user) {
+  if (!user || !user.tenantId) return null;
+  return TENANTS.find(t => t.id === user.tenantId);
+}
+
+function getUserScopeSubAccounts(userId) {
+  return TENANT_USER_SCOPES.filter(s => s.userId === userId).map(s => s.subAccountId);
+}
+
+function getContractsByTenant(tenantId) {
+  return CONTRACTS.filter(c => c.tenantId === tenantId);
+}
+
+function getSubAccountsByContract(contractId) {
+  return CLOUD_SUB_ACCOUNTS.filter(s => s.contractId === contractId);
+}
 
 // ── 리포트 템플릿 (R01~R06) ──
 const REPORT_TEMPLATES = [
@@ -427,3 +650,60 @@ const CUR_COLUMNS = [
   { id: 129, columnCategory: 'splitLineItem', columnName: 'splitLineItemUnusedCost', columnKoName: '분할라인항목_분할라인항목미사용비용', description: 'Unused cost allocated to the ECS task or Kubernetes pod, including amortized reservation or Savings Plans charges where applicable.', dataType: 'double', nullability: '', properties: 'Added by: INCLUDE_SPLIT_COST_ALLOCATION_DATA.', createdAt: '2026-04-13T09:00:00', isDeleted: false },
   { id: 130, columnCategory: 'tags', columnName: 'tags', columnKoName: '태그_통합맵', description: 'A map column containing key-value pairs of all user, account, cost category, and resource tags and their values for a given line item.', dataType: 'map <string, string>', nullability: '', properties: 'Dot-operator queryable; selecting this can replace separate resource_tags and cost_category columns.', createdAt: '2026-04-13T09:00:00', isDeleted: false },
 ];
+
+// ── 감사 로그 ──
+// 액션 유형 상수
+const AUDIT_ACTIONS = {
+  LOGIN: '로그인',
+  LOGIN_FAIL: '로그인 실패',
+  LOGOUT: '로그아웃',
+  VIEW: '조회',
+  EXPORT: '엑셀 다운로드',
+  EXPORT_PDF: 'PDF 다운로드',
+  CREATE: '등록',
+  UPDATE: '수정',
+  DELETE: '삭제',
+  RESTORE: '복원',
+  PASSWORD_CHANGE: '비밀번호 변경',
+  PASSWORD_RESET_REQUEST: '비밀번호 초기화 요청',
+  PASSWORD_RESET_APPROVE: '비밀번호 초기화 승인',
+};
+
+// 초기 감사 로그 더미 (최근 활동 예시 30건)
+const AUDIT_LOGS = (() => {
+  const logs = [];
+  const now = new Date('2026-04-14T09:00:00');
+  const samples = [
+    { action: AUDIT_ACTIONS.LOGIN, target: '시스템', conditions: '' },
+    { action: AUDIT_ACTIONS.VIEW, target: '대시보드', conditions: '' },
+    { action: AUDIT_ACTIONS.VIEW, target: '리포트 라이브러리 조회', conditions: '유형: 비용분석, 기간: 2025.11, 검색어: 파레토' },
+    { action: AUDIT_ACTIONS.EXPORT, target: '리포트 라이브러리 다운로드', conditions: '유형: 비용분석, 기간: 2025.11, 파일명: 최근_리포트.xlsx' },
+    { action: AUDIT_ACTIONS.VIEW, target: '구독 관리 조회', conditions: '활성 구독자: 42명' },
+    { action: AUDIT_ACTIONS.VIEW, target: '업로드 이력 조회', conditions: '전체 건수: 15' },
+    { action: AUDIT_ACTIONS.EXPORT, target: '구독자 목록 다운로드', conditions: '파일명: 구독자_목록.xlsx, 건수: 50' },
+    { action: AUDIT_ACTIONS.VIEW, target: 'CUR 컬럼 관리 조회', conditions: '카테고리: lineItem, 검색어: cost' },
+    { action: AUDIT_ACTIONS.CREATE, target: 'CUR 컬럼', conditions: '컬럼명: customField01' },
+    { action: AUDIT_ACTIONS.UPDATE, target: '사용자', conditions: 'ID: parkapprove, 역할: ROLE_APPROVER' },
+    { action: AUDIT_ACTIONS.PASSWORD_RESET_APPROVE, target: '비밀번호 초기화 승인', conditions: '대상: yoonview' },
+    { action: AUDIT_ACTIONS.LOGOUT, target: '시스템', conditions: '' },
+  ];
+  const actors = [USERS[0], USERS[1], USERS[2], USERS[3]];
+  for (let i = 0; i < 30; i++) {
+    const s = samples[i % samples.length];
+    const actor = actors[i % actors.length];
+    const t = new Date(now.getTime() - i * 37 * 60 * 1000);
+    logs.push({
+      id: i + 1,
+      timestamp: t.toISOString(),
+      username: actor.username,
+      name: actor.name,
+      role: actor.roles[0],
+      action: s.action,
+      target: s.target,
+      conditions: s.conditions,
+      ipAddress: `10.0.${(i * 7) % 255}.${(i * 13) % 255}`,
+      userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)',
+    });
+  }
+  return logs.sort((a, b) => b.timestamp.localeCompare(a.timestamp));
+})();

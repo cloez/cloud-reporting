@@ -1,10 +1,28 @@
 # API 설계서 — 클라우드 비용 리포팅 자동화
 
-> **버전**: v1.0  
-> **작성일**: 2026-04-06  
-> **작성자**: 01-architect  
-> **근거 문서**: docs/brd.md, docs/trd.md, design/data-model.md  
-> **형식**: OpenAPI 3.0 초안 (구현 시 Spring Boot + springdoc-openapi 자동 생성)
+> **버전**: v3.0 (DQA-v2-003·v2-014 반영 — v1 API 폐기 + §10 요약표 재작성)
+> **작성일**: 2026-04-16
+> **작성자**: 01-architect
+> **근거 문서**: docs/brd.md, docs/trd.md, design/data-model.md v3.0, qa/design/design-qa-report.md v3.0
+
+---
+
+## 0. v3.0 변경 요약 (DQA-v2 반영)
+
+| DQA ID | 해소 내용 |
+|--------|-----------|
+| **DQA-v2-003** High | v1.0 라우트(§3~§9의 `/uploads`, `/templates`, `/reports`, `/subscribers`, `/dashboard`, `/column-aliases`, `/admin/users`)를 **문서에서 전면 제거** — §3은 폐기 안내 및 v1→v2 라우트 맵으로 대체 |
+| **DQA-v2-014** Major | §10 엔드포인트 요약표를 v1.0 36개 평면 리스트 → **v2.0 카테고리별 집계표(~76개)** 로 재작성 |
+
+### v1.0 → v2.0 (REG-002 시점) → v3.0 누적
+
+| 항목 | 변경 내용 |
+|------|----------|
+| 경로 분리 | `/api/v1/admin/*` (시스템) / `/api/v1/t/{tenantSlug}/*` (테넌트) / `/api/v1/auth/*` (공용) |
+| 인증 | JWT claims에 `tenantId`, `tenantSlug`, `roles[]`, `userId` 포함 — 서버는 매 요청 RLS 세션 변수 주입 |
+| 신규 도메인 | tenants, contracts, cloud-accounts, sub-accounts, scopes, audit-logs, approvals |
+| 기존 라우트 이동 | uploads → `/admin/ops/uploads` (Payer 단위, SYS_OPS), reports/subscribers → `/t/{slug}/c/{contractId}/...` |
+| 폐기 | TEMPLATE_ROLE_ACCESS API 없음 (역할 매트릭스는 코드 상수 `RoleTemplateMatrix`) |
 
 ---
 
@@ -18,16 +36,29 @@
 Swagger UI: /swagger-ui
 ```
 
-### 1.2 인증 (OPEN-005 가정: JWT)
+### 1.2 인증 (OPEN-005 JWT) — v2.0
 
 ```
 Authorization: Bearer {JWT_TOKEN}
 ```
 
-- JWT 발급: `/api/v1/auth/login`
-- 토큰 갱신: `/api/v1/auth/refresh`
-- 만료 시간: Access 30분, Refresh 7일
-- Spring Security + RBAC 기반 역할 검증
+JWT Payload:
+```json
+{
+  "sub": "user-id",
+  "userId": 123,
+  "tenantId": "AD00000AK7",   // SYS_*는 null
+  "tenantSlug": "shinhan-card",
+  "roles": ["ROLE_TENANT_ADMIN"],
+  "exp": 1700000000
+}
+```
+
+- JWT 발급: `POST /api/v1/auth/login` (body에 `tenantSlug` 또는 `system: true` 필수)
+- 갱신: `POST /api/v1/auth/refresh`
+- 만료: Access 30분, Refresh 7일
+- 서버는 매 요청에서 JWT 검증 후 PostgreSQL에 `SET LOCAL app.tenant_id`, `app.role`, `app.user_id` 주입 → RLS 자동 적용
+- URL의 `{tenantSlug}` ↔ JWT의 `tenantSlug` 불일치 시 403
 
 ### 1.3 공통 응답 형식
 
@@ -108,374 +139,9 @@ Access 토큰 갱신.
 | 접근 | 인증 필요 |
 | Response 200 | `{ "success": true }` |
 
----
+### POST `/auth/change-password` (공용)
 
-## 3. 데이터 업로드 API
-
-### POST `/uploads`
-
-엑셀 파일 업로드 (비동기 처리 시작).
-
-| 구분 | 내용 |
-|------|------|
-| 접근 | ROLE_OPS |
-| Content-Type | multipart/form-data |
-| Request | `file: MultipartFile` (엑셀 파일, 최대 100MB) |
-| Response 202 | `{ "batchId": 1, "status": "PROCESSING", "message": "파일 처리를 시작합니다" }` |
-| Response 413 | 파일 크기 초과 |
-
-### GET `/uploads`
-
-업로드 배치 목록 조회.
-
-| 구분 | 내용 |
-|------|------|
-| 접근 | ROLE_OPS |
-| Query | `page`, `size`, `status` (선택), `sort` (선택) |
-| Response 200 | 페이지네이션된 UploadBatch 목록 |
-
-### GET `/uploads/{batchId}`
-
-업로드 배치 상세 조회 (시트 목록 포함).
-
-| 구분 | 내용 |
-|------|------|
-| 접근 | ROLE_OPS |
-| Response 200 | UploadBatch + sheets[] + validationResults |
-
-### GET `/uploads/{batchId}/status`
-
-업로드 처리 상태 폴링.
-
-| 구분 | 내용 |
-|------|------|
-| 접근 | ROLE_OPS |
-| Response 200 | `{ "batchId": 1, "status": "PROCESSING", "progress": 75, "currentSheet": "2026-03" }` |
-
-### PUT `/uploads/{batchId}/mappings`
-
-컬럼 매핑 수동 수정.
-
-| 구분 | 내용 |
-|------|------|
-| 접근 | ROLE_OPS |
-| Request Body | `{ "mappings": [ { "sourceColumn": "string", "standardColumn": "string" } ] }` |
-| Response 200 | 수정된 매핑 결과 |
-
-### POST `/uploads/{batchId}/confirm`
-
-업로드 확정 (검증 완료 후).
-
-| 구분 | 내용 |
-|------|------|
-| 접근 | ROLE_OPS |
-| Response 200 | `{ "batchId": 1, "status": "COMPLETED" }` |
-
----
-
-## 4. 리포트 템플릿 API
-
-### GET `/templates`
-
-리포트 템플릿 목록 조회 (역할별 필터링 적용).
-
-| 구분 | 내용 |
-|------|------|
-| 접근 | ROLE_OPS, ROLE_VIEWER, ROLE_ADMIN |
-| Query | `category` (선택), `search` (선택) |
-| Response 200 | ReportTemplate[] (역할별 접근 가능 목록만) |
-
-### GET `/templates/{templateId}`
-
-리포트 템플릿 상세 조회.
-
-| 구분 | 내용 |
-|------|------|
-| 접근 | ROLE_OPS, ROLE_VIEWER, ROLE_ADMIN |
-| Response 200 | ReportTemplate (설정, 차트 규칙 포함) |
-
----
-
-## 5. 리포트 파일 API
-
-### POST `/reports/generate`
-
-리포트 생성 요청 (비동기).
-
-| 구분 | 내용 |
-|------|------|
-| 접근 | ROLE_OPS |
-| Request Body | `{ "templateId": 1, "targetYearMonth": 202603, "format": "XLSX" }` |
-| Response 202 | `{ "reportFileId": 1, "status": "GENERATING", "message": "리포트를 생성하고 있어요" }` |
-| Response 404 | 해당 연월에 COST_DATA가 없는 경우 |
-
-> **DQA-002 반영**: `batchId` 제거 — Aggregation Engine이 `targetYearMonth` 기준으로 **COST_DATA** 테이블에서 직접 집계. 배치 종속성 제거.
-
-### GET `/reports`
-
-생성된 리포트 파일 목록 조회.
-
-| 구분 | 내용 |
-|------|------|
-| 접근 | ROLE_OPS, ROLE_VIEWER, ROLE_ADMIN |
-| Query | `templateId` (선택), `yearMonth` (선택), `status` (선택), `page`, `size` |
-| Response 200 | 페이지네이션된 ReportFile 목록 (역할별 필터) |
-
-### GET `/reports/{reportFileId}`
-
-리포트 파일 상세 조회.
-
-| 구분 | 내용 |
-|------|------|
-| 접근 | ROLE_OPS, ROLE_VIEWER, ROLE_ADMIN |
-| Response 200 | ReportFile 상세 (메타데이터) |
-
-### GET `/reports/{reportFileId}/status`
-
-리포트 생성 상태 폴링.
-
-| 구분 | 내용 |
-|------|------|
-| 접근 | ROLE_OPS |
-| Response 200 | `{ "reportFileId": 1, "status": "GENERATING", "progress": 60 }` |
-
-### GET `/reports/{reportFileId}/download`
-
-리포트 파일 다운로드.
-
-| 구분 | 내용 |
-|------|------|
-| 접근 | ROLE_OPS, ROLE_VIEWER (소속부서), ROLE_ADMIN |
-| Response 200 | 파일 스트림 (Content-Disposition: attachment) |
-| Response 404 | 파일 미존재 또는 생성 중 |
-
-### GET `/reports/{reportFileId}/preview`
-
-리포트 미리보기 데이터 조회.
-
-| 구분 | 내용 |
-|------|------|
-| 접근 | ROLE_OPS, ROLE_VIEWER (소속부서), ROLE_ADMIN |
-| Response 200 | `{ "chartData": {...}, "gridData": [...], "summary": {...} }` |
-
----
-
-## 6. 구독 관리 API
-
-### GET `/subscribers`
-
-구독자 목록 조회.
-
-| 구분 | 내용 |
-|------|------|
-| 접근 | ROLE_OPS (조회), ROLE_ADMIN (CRUD) |
-| Query | `department` (선택), `isActive` (선택), `page`, `size` |
-| Response 200 | 페이지네이션된 Subscriber 목록 |
-
-### POST `/subscribers`
-
-구독자 등록.
-
-| 구분 | 내용 |
-|------|------|
-| 접근 | ROLE_ADMIN |
-| Request Body | `{ "name": "string", "email": "string", "department": "string", "accountScope": "string", "isActive": true }` |
-| Response 201 | 생성된 Subscriber |
-| Response 409 | 이메일 중복 |
-
-### PUT `/subscribers/{subscriberId}`
-
-구독자 수정.
-
-| 구분 | 내용 |
-|------|------|
-| 접근 | ROLE_ADMIN |
-| Request Body | SubscriberForm (부분 수정 지원) |
-| Response 200 | 수정된 Subscriber |
-
-### DELETE `/subscribers/{subscriberId}`
-
-구독자 삭제 (논리 삭제 — isActive=false).
-
-| 구분 | 내용 |
-|------|------|
-| 접근 | ROLE_ADMIN |
-| Response 200 | `{ "success": true }` |
-
-### GET `/subscriptions/logs`
-
-구독 발송 이력 조회.
-
-| 구분 | 내용 |
-|------|------|
-| 접근 | ROLE_OPS, ROLE_ADMIN |
-| Query | `subscriberId` (선택), `status` (선택), `from`, `to`, `page`, `size` |
-| Response 200 | 페이지네이션된 SubscriptionLog 목록 |
-
-### GET `/subscriptions/schedule`
-
-다음 발송 예정 정보 조회.
-
-| 구분 | 내용 |
-|------|------|
-| 접근 | ROLE_OPS, ROLE_ADMIN |
-| Response 200 | `{ "nextSchedule": "2026.05.11", "subscriberCount": 42, "lastResult": "success" }` |
-
-### POST `/subscriptions/trigger`
-
-수동 발송 트리거 (즉시 발송).
-
-| 구분 | 내용 |
-|------|------|
-| 접근 | ROLE_OPS, ROLE_ADMIN |
-| Request Body | `{ "targetYearMonth": 202603, "templateIds": [1,2,3] }` |
-| Response 202 | `{ "message": "발송을 시작합니다", "jobId": "uuid" }` |
-| Response 404 | 해당 ���월��� COST_DATA가 없는 경우 |
-
-> **DQA-002 해소**: 배치 선택 로직 — `batchId`를 직접 전달하지 않음. 서버 내부에서 `targetYearMonth`에 해당하는 **COST_DATA**를 직접 집계하여 리포트를 생성. COST_DATA 도입으로 특정 배치 종속성 제거. 자동 발송(매월 10일)도 동일한 COST_DATA 기반 집계 수행.
-
----
-
-## 7. 대시보드 API
-
-### GET `/dashboard/summary`
-
-대시보드 KPI 요약 데이터.
-
-| 구분 | 내용 |
-|------|------|
-| 접근 | ROLE_OPS, ROLE_VIEWER, ROLE_ADMIN |
-| Response 200 | 아래 참조 |
-
-```json
-{
-  "totalCost": 125000000,
-  "costChangeRate": -3.2,
-  "reportCount": 24,
-  "subscriberCount": 42,
-  "latestBatchDate": "2026.03.15",
-  "nextSchedule": "2026.04.10"
-}
-```
-
-> ROLE_VIEWER: 소속 부서 데이터만 집계
-
-### GET `/dashboard/cost-trend`
-
-월별 비용 추이 데이터 (ECharts용).
-
-| 구분 | 내용 |
-|------|------|
-| 접근 | ROLE_OPS, ROLE_VIEWER, ROLE_ADMIN |
-| Query | `months` (조회 개월 수, 기본 12) |
-| Response 200 | CostTrendData[] |
-
-### GET `/dashboard/service-top`
-
-서비스 Top N 비용 데이터 (ECharts용).
-
-| 구분 | 내용 |
-|------|------|
-| 접근 | ROLE_OPS, ROLE_VIEWER, ROLE_ADMIN |
-| Query | `topN` (기본 5), `yearMonth` (선택) |
-| Response 200 | ServiceCostData[] |
-
-### GET `/dashboard/recent-reports`
-
-최근 생성 리포트 목록 (5건).
-
-| 구분 | 내용 |
-|------|------|
-| 접근 | ROLE_OPS, ROLE_VIEWER, ROLE_ADMIN |
-| Response 200 | ReportFile[] (최근 5건) |
-
----
-
-## 8. 컬럼 별칭 API
-
-### GET `/column-aliases`
-
-컬럼 별칭 사전 조회.
-
-| 구분 | 내용 |
-|------|------|
-| 접근 | ROLE_OPS, ROLE_ADMIN |
-| Query | `department` (선택), `standardColumn` (선택) |
-| Response 200 | ColumnAlias[] |
-
-### POST `/column-aliases`
-
-컬럼 별칭 등록.
-
-| 구분 | 내용 |
-|------|------|
-| 접근 | ROLE_ADMIN |
-| Request Body | `{ "sourceColumn": "string", "standardColumn": "string", "department": "string" }` |
-| Response 201 | 생성된 ColumnAlias |
-
-### PUT `/column-aliases/{aliasId}`
-
-컬럼 별칭 수정.
-
-| 구분 | 내용 |
-|------|------|
-| 접근 | ROLE_ADMIN |
-| Response 200 | 수정된 ColumnAlias |
-
-### DELETE `/column-aliases/{aliasId}`
-
-컬럼 별칭 삭제.
-
-| 구분 | 내용 |
-|------|------|
-| 접근 | ROLE_ADMIN |
-| Response 200 | `{ "success": true }` |
-
----
-
-## 9. 사용자 관리 API
-
-### GET `/admin/users`
-
-사용자 목록 조회.
-
-| 구분 | 내용 |
-|------|------|
-| 접근 | ROLE_ADMIN |
-| Query | `department` (선택), `role` (선택), `isActive` (선택), `page`, `size` |
-| Response 200 | 페이지네이션된 User 목록 |
-
-### POST `/admin/users`
-
-사용자 등록.
-
-| 구분 | 내용 |
-|------|------|
-| 접근 | ROLE_ADMIN |
-| Request Body | `{ "username": "string", "password": "string", "name": "string", "email": "string", "department": "string", "roleIds": [1] }` |
-| Response 201 | 생성된 User |
-
-### PUT `/admin/users/{userId}`
-
-사용자 정보 수정 (역할·부서 변경 포함).
-
-| 구분 | 내용 |
-|------|------|
-| 접근 | ROLE_ADMIN |
-| Response 200 | 수정된 User |
-
-### PATCH `/admin/users/{userId}/deactivate`
-
-사용자 비활성화.
-
-| 구분 | 내용 |
-|------|------|
-| 접근 | ROLE_ADMIN |
-| Response 200 | `{ "success": true }` |
-
-### POST `/auth/change-password` — DQA-008 신규
-
-비밀번호 변경.
+비밀번호 변경 — 전 역할이 본인 계정에 대해 호출 가능.
 
 | 구분 | 내용 |
 |------|------|
@@ -486,49 +152,205 @@ Access 토큰 갱신.
 
 ---
 
-## 10. 엔드포인트 요약
+## 3. v1 라우트 폐기 안내 (DQA-v2-003)
 
-| 메서드 | 경로 | 설명 | 접근 역할 |
-|--------|------|------|----------|
-| POST | /auth/login | 로그인 | 공개 |
+v1.0의 `/uploads`, `/templates`, `/reports`, `/subscribers`, `/dashboard`, `/column-aliases`, `/admin/users` 경로는 **전면 폐기**됩니다. 같은 기능은 역할·테넌트·계약 컨텍스트가 드러나는 아래 경로로 이동했습니다.
+
+| v1.0 경로 (폐기) | v2.0 이동 경로 | 접근 역할 |
+|----------------|--------------|----------|
+| `POST /uploads`, `GET /uploads/*` | `POST /admin/ops/uploads`, `/admin/ops/uploads/*` | SYS_OPS |
+| `PUT /uploads/{id}/mappings`, `POST /uploads/{id}/confirm` | `/admin/ops/uploads/{id}/mappings|confirm` | SYS_OPS |
+| `GET /templates/*` | `GET /t/{slug}/c/{contractId}/templates` | TENANT_USER (Role×Template 상수 필터) |
+| `POST /reports/generate`, `GET /reports/*` | `/t/{slug}/c/{contractId}/reports/*` | TENANT_ADMIN/USER |
+| `GET /dashboard/*` | `/t/{slug}/c/{contractId}/dashboard/*` | TENANT_USER |
+| `GET|POST|PUT|DELETE /subscribers`, `/subscriptions/*` | `/t/{slug}/c/{contractId}/subscribers`, `/subscriptions/*` | TENANT_ADMIN/USER |
+| `/column-aliases/*` | `/admin/ops/aliases` | SYS_OPS |
+| `GET|POST|PUT /admin/users/*` | `/admin/users` (시스템 사용자) + `/t/{slug}/admin/users` (테넌트 사용자) | SYS_ADMIN / TENANT_ADMIN |
+
+`/auth/login`, `/auth/refresh`, `/auth/logout`, `/auth/change-password`는 v2.0에서도 공용으로 유지됩니다. 상세 명세는 §9-A / §9-B / §9-C 참조.
+
+---
+
+## 9-A. 시스템 콘솔 API (`/admin/*`) — v2.0 신규
+
+> 모두 `ROLE_SYS_ADMIN` 전용 (CUR 업로드만 `ROLE_SYS_OPS`).
+
+### 테넌트 관리
+| 메서드 | 경로 | 설명 |
+|--------|------|------|
+| GET | `/admin/tenants` | 테넌트 목록 (status/검색 필터, 페이지네이션) |
+| POST | `/admin/tenants` | 테넌트 등록 — body: TenantInput, 응답: 자동생성 ID·slug 포함 |
+| GET | `/admin/tenants/{id}` | 테넌트 상세 (계약 수, 사용자 수, 최근 활동) |
+| PUT | `/admin/tenants/{id}` | 테넌트 수정 (slug 포함) |
+| PATCH | `/admin/tenants/{id}/status` | 상태 전환 (ACTIVE/DORMANT/SUSPENDED/TERMINATED) |
+| POST | `/admin/tenants/{id}/admin-user` | 초기 테넌트 관리자 계정 발급 (원래 등록 시 자동 생성, 재발급용) |
+| GET | `/admin/tenants/check-slug?slug=...` | 슬러그 중복 검사 |
+
+### 시스템 사용자 관리 (SYS_ADMIN, SYS_OPS 계정)
+| 메서드 | 경로 | 설명 |
+|--------|------|------|
+| GET | `/admin/users` | 시스템 사용자 목록 |
+| POST | `/admin/users` | 시스템 사용자 생성 (role: SYS_ADMIN/SYS_OPS) |
+| PUT | `/admin/users/{id}` | 수정 |
+| PATCH | `/admin/users/{id}/deactivate` | 비활성화 |
+
+### 전역 감사로그
+| 메서드 | 경로 | 설명 |
+|--------|------|------|
+| GET | `/admin/audit-logs` | 전 테넌트 감사로그 (tenantId/actor/action/period 필터) |
+| GET | `/admin/audit-logs/export` | CSV 내보내기 |
+
+### CUR 업로드 (SYS_OPS)
+| 메서드 | 경로 | 설명 |
+|--------|------|------|
+| POST | `/admin/ops/uploads` | CUR 파일 업로드 (multipart, body: tenantId·cloudAccountId 또는 자동탐지) |
+| GET | `/admin/ops/uploads` | 업로드 배치 목록 (전 테넌트, 필터: tenantId·status) |
+| GET | `/admin/ops/uploads/{batchId}` | 배치 상세 + 영향받은 계약 목록 |
+| GET | `/admin/ops/uploads/{batchId}/status` | 진행 상태 폴링 |
+| POST | `/admin/ops/uploads/{batchId}/confirm` | 확정 + TENANT_ADMIN 알림 |
+| GET | `/admin/ops/payer-detect?filename=...` | 파일명에서 PayerId 자동 추출 시도 |
+| GET, POST, PUT, DELETE | `/admin/ops/aliases` | 컬럼 별칭 관리 (기존 `/column-aliases`) |
+
+---
+
+## 9-B. 테넌트 콘솔 API (`/t/{tenantSlug}/admin/*`) — v2.0 신규
+
+> 모두 `ROLE_TENANT_ADMIN` 전용. JWT의 tenantSlug ↔ URL slug 일치 검증.
+
+### 테넌트 사용자
+| 메서드 | 경로 | 설명 |
+|--------|------|------|
+| GET | `/t/{slug}/admin/users` | 테넌트 사용자 목록 |
+| POST | `/t/{slug}/admin/users` | 사용자 생성 (role: TENANT_ADMIN/APPROVER/USER) |
+| PUT | `/t/{slug}/admin/users/{id}` | 수정 |
+| PATCH | `/t/{slug}/admin/users/{id}/deactivate` | 비활성화 |
+
+### 계약
+| 메서드 | 경로 | 설명 |
+|--------|------|------|
+| GET | `/t/{slug}/admin/contracts` | 계약 목록 |
+| POST | `/t/{slug}/admin/contracts` | 계약 등록 (13속성) |
+| GET | `/t/{slug}/admin/contracts/{id}` | 계약 상세 + CloudAccount 트리 |
+| PUT | `/t/{slug}/admin/contracts/{id}` | 수정 |
+| PATCH | `/t/{slug}/admin/contracts/{id}/status` | 상태 전환 |
+
+### Cloud Account / SubAccount
+| 메서드 | 경로 | 설명 |
+|--------|------|------|
+| POST | `/t/{slug}/admin/contracts/{id}/cloud-accounts` | Payer 등록 (provider, payerAccountId, effectiveFrom/To) |
+| PUT | `/t/{slug}/admin/cloud-accounts/{id}` | Payer 수정 |
+| POST | `/t/{slug}/admin/cloud-accounts/{id}/sub-accounts` | SubAccount 등록 |
+| PUT | `/t/{slug}/admin/sub-accounts/{id}` | SubAccount 수정·비활성화 |
+
+### CUR 수집 소스 (MVP는 MANUAL_UPLOAD 고정)
+| 메서드 | 경로 | 설명 |
+|--------|------|------|
+| GET | `/t/{slug}/admin/cloud-accounts/{id}/cur-sources` | 수집 소스 조회 |
+| POST | `/t/{slug}/admin/cloud-accounts/{id}/cur-sources` | 향후 AWS_S3_PULL 등록용 (MVP에서는 MANUAL 1건 자동 생성) |
+
+### 권한 위임 (Scope)
+| 메서드 | 경로 | 설명 |
+|--------|------|------|
+| GET | `/t/{slug}/admin/scopes` | 사용자×SubAccount 권한 매트릭스 |
+| PUT | `/t/{slug}/admin/scopes` | 일괄 갱신 (body: ScopeChange[]) |
+
+### 테넌트 감사로그
+| 메서드 | 경로 | 설명 |
+|--------|------|------|
+| GET | `/t/{slug}/admin/audit-logs` | 자기 테넌트 감사로그 |
+| GET | `/t/{slug}/admin/audit-logs/export` | CSV |
+
+---
+
+## 9-C. 테넌트 사용자 API (`/t/{tenantSlug}/c/{contractId}/*`) — v2.0 변경
+
+> `contractId`는 숫자 또는 `all`. RLS + Scope 자동 필터링.
+
+| 메서드 | 경로 | 설명 |
+|--------|------|------|
+| GET | `/t/{slug}/contracts` | 권한 보유 계약 목록 (셀렉터용) |
+| GET | `/t/{slug}/c/{contractId}/dashboard/summary` | KPI 요약 (가시 합계 + 마스킹 비율) |
+| GET | `/t/{slug}/c/{contractId}/dashboard/cost-trend` | 월별 추이 |
+| GET | `/t/{slug}/c/{contractId}/dashboard/service-top` | 서비스 Top N |
+| GET | `/t/{slug}/c/{contractId}/dashboard/recent-reports` | 최근 리포트 |
+| GET | `/t/{slug}/c/{contractId}/templates` | 리포트 템플릿 목록 |
+| POST | `/t/{slug}/c/{contractId}/reports/generate` | 리포트 생성 (TENANT_ADMIN만) |
+| GET | `/t/{slug}/c/{contractId}/reports` | 리포트 파일 목록 |
+| GET | `/t/{slug}/c/{contractId}/reports/{id}` | 상세 |
+| GET | `/t/{slug}/c/{contractId}/reports/{id}/preview` | 미리보기 |
+| GET | `/t/{slug}/c/{contractId}/reports/{id}/download` | 다운로드 (DOWNLOAD_LOG 기록) |
+| GET, POST, PUT, DELETE | `/t/{slug}/c/{contractId}/subscribers` | 구독자 CRUD |
+| GET | `/t/{slug}/c/{contractId}/subscriptions/logs` | 발송 이력 |
+| GET | `/t/{slug}/c/{contractId}/subscriptions/schedule` | 다음 발송 |
+| POST | `/t/{slug}/c/{contractId}/subscriptions/trigger` | 수동 발송 |
+
+### 승인 (placeholder)
+| 메서드 | 경로 | 설명 |
+|--------|------|------|
+| GET | `/t/{slug}/approvals` | 승인 요청 목록 (현재는 빈 배열 반환) |
+| POST | `/t/{slug}/approvals/{id}/approve` | 향후 구현 |
+| POST | `/t/{slug}/approvals/{id}/reject` | 향후 구현 |
+
+---
+
+## 10. 엔드포인트 요약 (v2.0)
+
+### 10.1 공용 (Auth) — 4개
+| 메서드 | 경로 | 설명 | 접근 |
+|--------|------|------|------|
+| POST | /auth/login | 로그인 (body에 tenantSlug 또는 system 플래그) | 공개 |
 | POST | /auth/refresh | 토큰 갱신 | 인증 |
 | POST | /auth/logout | 로그아웃 | 인증 |
-| POST | /uploads | 파일 업로드 | OPS |
-| GET | /uploads | 업로드 목록 | OPS |
-| GET | /uploads/{id} | 업로드 상세 | OPS |
-| GET | /uploads/{id}/status | 업로드 상태 | OPS |
-| PUT | /uploads/{id}/mappings | 매핑 수정 | OPS |
-| POST | /uploads/{id}/confirm | 업로드 확정 | OPS |
-| GET | /templates | 템플릿 목록 | OPS, VIEWER, ADMIN |
-| GET | /templates/{id} | 템플릿 상세 | OPS, VIEWER, ADMIN |
-| POST | /reports/generate | 리포트 생성 | OPS |
-| GET | /reports | 리포트 목록 | OPS, VIEWER, ADMIN |
-| GET | /reports/{id} | 리포트 상세 | OPS, VIEWER, ADMIN |
-| GET | /reports/{id}/status | 생성 상태 | OPS |
-| GET | /reports/{id}/download | 다운로드 | OPS, VIEWER, ADMIN |
-| GET | /reports/{id}/preview | 미리보기 | OPS, VIEWER, ADMIN |
-| GET | /subscribers | 구독자 목록 | OPS, ADMIN |
-| POST | /subscribers | 구독자 등록 | ADMIN |
-| PUT | /subscribers/{id} | 구독자 수정 | ADMIN |
-| DELETE | /subscribers/{id} | 구독자 삭제 | ADMIN |
-| GET | /subscriptions/logs | 발송 이력 | OPS, ADMIN |
-| GET | /subscriptions/schedule | 발송 예정 | OPS, ADMIN |
-| POST | /subscriptions/trigger | 수동 발송 | OPS, ADMIN |
-| GET | /dashboard/summary | KPI 요약 | OPS, VIEWER, ADMIN |
-| GET | /dashboard/cost-trend | 비용 추이 | OPS, VIEWER, ADMIN |
-| GET | /dashboard/service-top | 서비스 Top N | OPS, VIEWER, ADMIN |
-| GET | /dashboard/recent-reports | 최근 리포트 | OPS, VIEWER, ADMIN |
-| GET | /column-aliases | 별칭 목록 | OPS, ADMIN |
-| POST | /column-aliases | 별칭 등록 | ADMIN |
-| PUT | /column-aliases/{id} | 별칭 수정 | ADMIN |
-| DELETE | /column-aliases/{id} | 별칭 삭제 | ADMIN |
-| GET | /admin/users | 사용자 목록 | ADMIN |
-| POST | /admin/users | 사용자 등록 | ADMIN |
-| PUT | /admin/users/{id} | 사용자 수정 | ADMIN |
-| PATCH | /admin/users/{id}/deactivate | 사용자 비활성화 | ADMIN |
 | POST | /auth/change-password | 비밀번호 변경 | 인증 (본인) |
 
-**총 36개 엔드포인트** (DQA-008 비밀번호 변경 추가)
+### 10.2 시스템 콘솔 `/admin/*` (SYS_ADMIN / SYS_OPS) — 18개
+| 묶음 | 엔드포인트 수 | 역할 |
+|------|-------------|------|
+| 테넌트 CRUD + 상태 전환 + 슬러그 검사 | 7 | SYS_ADMIN |
+| 시스템 사용자 CRUD | 4 | SYS_ADMIN |
+| 전역 감사로그 / CSV 내보내기 | 2 | SYS_ADMIN |
+| CUR 업로드 (list/detail/status/confirm/payer-detect) | 5 + 컬럼 별칭 4 = 5(+4) | SYS_OPS |
+
+> 세부 경로는 §9-A 표 참조. SYS_OPS의 쓰기 작업은 모두 AUDIT_LOG 의무 기록.
+
+### 10.3 테넌트 콘솔 `/t/{slug}/admin/*` (TENANT_ADMIN) — 25개
+| 묶음 | 엔드포인트 수 |
+|------|-------------|
+| 테넌트 사용자 CRUD | 4 |
+| 계약 CRUD + 상태 전환 | 5 |
+| CloudAccount(Payer) / SubAccount CRUD | 4 |
+| CUR 수집 소스 | 2 |
+| 권한 위임(Scope) 매트릭스 조회·일괄 갱신 | 2 |
+| 테넌트 감사로그 + CSV | 2 |
+| 대시보드·리포트 조회 (테넌트 전체 집계) | 6 |
+
+> 세부 경로는 §9-B 표 참조. URL slug ↔ JWT tenantSlug 불일치 시 403.
+
+### 10.4 테넌트 사용자 `/t/{slug}/c/{contractId}/*` (TENANT_USER 등) — 25개
+| 묶음 | 엔드포인트 수 |
+|------|-------------|
+| 계약 목록(셀렉터) | 1 |
+| 대시보드 (summary, cost-trend, service-top, recent-reports) | 4 |
+| 리포트 템플릿·생성·목록·상세·미리보기·다운로드 | 6 |
+| 구독자 CRUD + 발송 이력/예정/수동 발송 | 7 |
+| 승인 placeholder (inbox / approve / reject) | 3 |
+| 계약 메타 조회·Cloud트리·Contract 컨텍스트 | 4 |
+
+> 세부 경로는 §9-C 표 참조. `contractId=all`은 다중 계약 가상 컨텍스트, 혼합통화 경고 동반.
+
+### 10.5 합계
+
+| 카테고리 | 엔드포인트 수 |
+|----------|-------------|
+| 공용 (Auth) | 4 |
+| 시스템 콘솔 (SYS_ADMIN/SYS_OPS) | 18 |
+| 테넌트 콘솔 (TENANT_ADMIN) | 25 |
+| 테넌트 사용자 (TENANT_USER/APPROVER) | 25 |
+| 공용 템플릿 메타 (공유 조회) | 4 |
+| **총계** | **≈ 76** (±5 — 구현 단계 OpenAPI 자동 생성 기준 고정) |
+
+> **v1.0 → v2.0 증분**: 36 → ~76 (테넌트·계약·Scope·감사·승인 신규 도메인).
+> **DQA-v2-014 해소**: 기존 v1.0 36개 평면 요약표를 카테고리별 집계표로 전면 교체. 특정 경로 접근 역할은 §9-A/B/C의 세부 표에 명시.
 
 ---
 

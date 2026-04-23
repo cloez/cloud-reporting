@@ -1,51 +1,126 @@
 # 컴포넌트 설계서 — 클라우드 비용 리포팅 자동화
 
-> **버전**: v1.1 (파레토 차트 컴포넌트 추가, 원본 FR-03-02 반영)  
-> **작성일**: 2026-04-06  
-> **작성자**: 01-architect  
-> **근거 문서**: docs/trd.md (§2 디자인 시스템), design/feature-decomposition.md, 원본 CLOUD-REQ-001 §4.3/§7.1
+> **버전**: v3.0 (DQA-v2-006 반영 — GNB §1.1 3변형·5권한 매트릭스로 재작성)
+> **작성일**: 2026-04-16
+> **작성자**: 01-architect
+> **근거 문서**: docs/trd.md (§2 디자인 시스템), design/feature-decomposition.md v2.0, design/screen-flow.md v3.0, qa/design/design-qa-report.md v3.0
+
+---
+
+## 0-v3.0. DQA-v2-006 반영
+
+GNB는 더 이상 단일 컴포넌트가 아니라 3변형 **variant**로 구성된다. §1.1 참조. 메뉴 매트릭스는 v1.x의 3권한(OPS/VIEWER/ADMIN) 표기가 아닌 v2.0 5권한(SYS_ADMIN/SYS_OPS/TENANT_ADMIN/TENANT_APPROVER/TENANT_USER)로 확정.
+
+---
+
+## 0. v2.0 신규 컴포넌트 요약
+
+| 컴포넌트 | 위치 | 용도 |
+|---------|------|------|
+| RoleGuard | 라우터 wrapper | 역할 기반 화면 접근 제어, 부족 시 403 |
+| TenantContextProvider | 앱 root | URL slug → tenantId 해석, JWT 갱신 |
+| ContractSelector | GNB 2행 | 계약 셀렉터 (전체 옵션 + 검색 + 마지막 선택 영속) |
+| MixedCurrencyBadge | 대시보드 | "전체" 모드 혼합 통화 경고 |
+| MaskedSumIndicator | 차트/KPI | 전체 합계 vs 가시 합계 차이 표기 |
+| TenantTable / TenantFormModal | `/admin/tenants` | 테넌트 CRUD |
+| SlugInput | TenantFormModal | 영문 슬러그 자동생성 + 즉시 수정 + 패턴/중복 검증 |
+| TenantStatusBadge | 전역 | ACTIVE/DORMANT/TERMINATED/SUSPENDED |
+| ContractTable / ContractFormModal | `/t/{slug}/admin/contracts` | 계약 CRUD (13속성) |
+| CloudAccountTree | 계약 상세 | Payer→SubAccount 트리 편집 |
+| TenantPayerSelector | `/admin/ops/uploads` | 테넌트→Payer 선택 (자동매칭+수동) |
+| PayerMatchResult | CUR 업로드 | 매칭 성공/미등록 표시 |
+| ImpactedContractList | CUR 업로드 | 영향받는 계약 목록 |
+| ScopeMatrix | `/t/{slug}/admin/scopes` | 사용자×SubAccount 권한 매트릭스 |
+| ScopeBulkAssign | 권한 위임 | 계약/Payer 단위 일괄 부여·회수 |
+| AuditLogTable / AuditLogFilterBar | `/admin/audit`, `/t/{slug}/admin/audit` | 감사로그 조회·필터·CSV |
+| ApprovalInbox | `/t/{slug}/approvals` | 빈 placeholder ("향후 제공" 안내) |
 
 ---
 
 ## 1. 공통 레이아웃 컴포넌트
 
-### 1.1 GNB (GlobalNavBar)
+### 1.1 GNB (GlobalNavBar) — v3.0: 3변형 + 5권한 메뉴 매트릭스
 
-2행 구조의 상단 고정 네비게이션 바.
+경로·역할에 따라 3가지 변형으로 렌더링하는 상단 고정 네비게이션. Props의 `variant`로 스타일과 메뉴 세트를 전환한다.
 
 | Props | 타입 | 필수 | 기본값 | 설명 |
 |-------|------|------|--------|------|
+| variant | 'system' \| 'tenant-admin' \| 'tenant-user' | ✅ | - | GNB 변형 — URL 기반 자동 결정 권장 |
 | currentPath | string | ✅ | - | 현재 활성 경로 |
-| user | UserInfo | ✅ | - | 로그인 사용자 정보 |
+| user | UserInfo | ✅ | - | 로그인 사용자 정보 (roles 다중 가능) |
+| tenant | TenantInfo \| null | ⚠ | null | tenant-* 변형에서 필수 (system에서는 null) |
+| contract | ContractInfo \| null | ⚠ | null | tenant-user 변형에서 필수, 'all' 가능 |
+| availableContracts | ContractInfo[] | ⚠ | [] | tenant-user 변형의 ContractSelector 옵션 |
+| onContractChange | (contractId: number \| 'all') => void | ⚠ | - | tenant-user 변형에서 필수 |
 | onMenuSearch | (query: string) => void | ❌ | - | 메뉴 검색 콜백 |
 | onNotificationClick | () => void | ❌ | - | 알림 아이콘 클릭 |
-| onSettingsClick | () => void | ❌ | - | 설정 아이콘 클릭 |
 
 ```typescript
+type Role = 'ROLE_SYS_ADMIN' | 'ROLE_SYS_OPS' | 'ROLE_TENANT_ADMIN' | 'ROLE_TENANT_APPROVER' | 'ROLE_TENANT_USER';
+
 interface UserInfo {
-  name: string;         // 사용자명
-  role: string;         // ROLE_OPS | ROLE_VIEWER | ROLE_ADMIN
-  department: string;   // 소속 부서
-  avatarUrl?: string;   // 프로필 이미지
+  userId: number;
+  name: string;
+  roles: Role[];          // 다중 역할 가능 (통상 1개)
+  email: string;
+  department?: string;    // 테넌트 사용자만
+  avatarUrl?: string;
+}
+
+interface TenantInfo {
+  id: string;             // CHAR(10)
+  slug: string;           // URL용
+  customerName: string;   // GNB 표시명
+}
+
+interface ContractInfo {
+  id: number | 'all';
+  code: string;           // 예: SHC-2026-001
+  name: string;           // 계약명
+  currency: 'KRW' | 'USD';
+  status: 'DRAFT' | 'ACTIVE' | 'EXPIRED' | 'TERMINATED';
 }
 ```
 
-**스타일 토큰**:
-- 1행: 높이 56px, 배경 `--sh-white`, 하단 보더 `--sh-gray-border`
+**변형별 레이아웃**:
+
+| variant | 배경/로고 | 1행 좌측 | 1행 우측 | 2행 메뉴 |
+|---------|----------|----------|---------|---------|
+| `system` | 딥블루(#002D85), "시스템 콘솔" | 로고 + 역할 뱃지 | 알림 \| 사용자명 \| 로그아웃 | SYS 전용 메뉴 |
+| `tenant-admin` | 화이트, 테넌트명 "{customerName} · 관리" | 로고 + Tenant | 알림 \| 사용자 | TENANT_ADMIN 메뉴 |
+| `tenant-user` | 화이트, Tenant + ContractSelector | 로고 + Tenant + Selector | 알림 \| 사용자 | TENANT_USER 메뉴 |
+
+**스타일 토큰** (공통):
+- 1행: 높이 56px, 하단 보더 `--sh-gray-border`
 - 2행: 높이 48px, 배경 `--sh-white`
 - 활성 탭: `--sh-blue-primary` 텍스트 + 2px 하단 보더
 - 비활성 탭: `--sh-dark-secondary` 텍스트
 - 전체: `position: sticky; top: 0; z-index: 100`
+- `system` 변형: 1행 배경 `--sh-blue-deep`(#002D85), 텍스트 `--sh-white`
 
-**메뉴 항목** (역할별 표시):
+**역할별 메뉴 매트릭스** (v2.0 5권한):
 
-| 메뉴 | 경로 | OPS | VIEWER | ADMIN |
-|------|------|-----|--------|-------|
-| 대시보드 | /dashboard | ✅ | ✅ | ✅ |
-| 데이터 업로드 | /upload | ✅ | ❌ | ❌ |
-| 리포트 라이브러리 | /reports | ✅ | ✅ | ✅ |
-| 구독 관리 | /subscriptions | ✅ | ❌ | ✅ |
-| 사용자 관리 | /admin/users | ❌ | ❌ | ✅ |
+| 메뉴 | 경로 | variant | SYS_ADMIN | SYS_OPS | T_ADMIN | T_APPROVER | T_USER |
+|------|------|---------|-----------|---------|---------|-----------|--------|
+| 시스템 대시보드 | `/admin/dashboard` | system | ✅ | ✅ | - | - | - |
+| 테넌트 관리 | `/admin/tenants` | system | ✅ | ❌ | - | - | - |
+| 시스템 사용자 | `/admin/users` | system | ✅ | ❌ | - | - | - |
+| 전역 감사로그 | `/admin/audit-logs` | system | ✅ | ❌ | - | - | - |
+| CUR 업로드 | `/admin/ops/uploads` | system | ✅ | ✅ | - | - | - |
+| 컬럼 별칭(공통) | `/admin/ops/aliases` | system | ✅ | ✅ | - | - | - |
+| 테넌트 홈 | `/t/{slug}/admin` | tenant-admin | - | - | ✅ | ❌ | ❌ |
+| 계약 관리 | `/t/{slug}/admin/contracts` | tenant-admin | - | - | ✅ | ❌ | ❌ |
+| Cloud Account | `/t/{slug}/admin/cloud-accounts` | tenant-admin | - | - | ✅ | ❌ | ❌ |
+| 테넌트 사용자 | `/t/{slug}/admin/users` | tenant-admin | - | - | ✅ | ❌ | ❌ |
+| 권한 위임(Scope) | `/t/{slug}/admin/scopes` | tenant-admin | - | - | ✅ | ❌ | ❌ |
+| 테넌트 감사로그 | `/t/{slug}/admin/audit-logs` | tenant-admin | - | - | ✅ | ❌ | ❌ |
+| 계약 대시보드 | `/t/{slug}/c/{id}/dashboard` | tenant-user | - | - | ✅ | ✅ | ✅ |
+| 리포트 라이브러리 | `/t/{slug}/c/{id}/reports` | tenant-user | - | - | ✅ | ✅ | ✅ |
+| 구독 관리 | `/t/{slug}/c/{id}/subscribers` | tenant-user | - | - | ✅ | ❌ | ⚠ (조회만) |
+| 승인함 | `/t/{slug}/approvals` | tenant-user | - | - | ❌ | ✅ | ❌ |
+
+> `-`: 해당 variant에 메뉴 없음 / `❌`: 메뉴 숨김 / `⚠`: 조건부 (상세는 `RoleGuard` 내부 로직)
+> SYS_ADMIN이 테넌트 컨텍스트에 진입하려면 별도의 impersonation 플로우 필요 (MVP 범위 외).
 
 ---
 
@@ -780,4 +855,124 @@ FilterBar 내부 구성 요소. FilterBar가 이들을 조합하여 렌더링.
 
 ---
 
-*본 문서는 TRD v1.1, QA 회귀(DQA-001~009), 원본 CLOUD-REQ-001 기반으로 작성되었습니다.*
+## 11. v2.0 신규 컴포넌트 상세
+
+### 11.1 RoleGuard
+```typescript
+interface RoleGuardProps {
+  allow: Role[];                 // ['ROLE_TENANT_ADMIN', ...]
+  scope?: 'GLOBAL' | 'TENANT';   // 라우트 스코프
+  children: ReactNode;
+  fallback?: ReactNode;          // 기본: <Forbidden />
+}
+```
+JWT의 roles[] + 현재 URL slug ↔ tenantId 일치 검사. 불일치 시 403.
+
+### 11.2 TenantContextProvider (Context API)
+```typescript
+interface TenantContext {
+  tenantId: string | null;       // URL slug에서 해석, SYS_*는 null
+  tenantSlug: string | null;
+  tenantName: string | null;
+  primaryRole: Role;
+  contracts: ContractSummary[];  // 권한 보유 계약 목록
+  currentContractId: number | 'all' | null;
+  setCurrentContract: (id: number | 'all') => void;  // localStorage 저장
+}
+```
+
+### 11.3 ContractSelector
+```typescript
+interface ContractSelectorProps {
+  contracts: ContractSummary[];
+  current: number | 'all';
+  onChange: (id: number | 'all') => void;
+  showAllOption?: boolean;       // 권한 보유 계약 ≥2일 때만 표시
+  searchable?: boolean;          // 10건 초과 시 자동 활성
+}
+```
+- 단일 계약 사용자는 셀렉터 비활성(고정 라벨).
+- "전체" 선택 시 URL을 `/c/all/...`로 변경.
+
+### 11.4 SlugInput
+```typescript
+interface SlugInputProps {
+  value: string;
+  customerName: string;          // 자동생성 시드
+  onChange: (slug: string) => void;
+  onValidate: (slug: string) => Promise<{ ok: boolean; reason?: string }>;
+}
+```
+- 마운트 시 customerName 변경되면 자동 재생성 (사용자가 수정한 적 없을 때만).
+- 입력 시 `^[a-z][a-z0-9-]{1,63}$` 즉시 검증, debounce 500ms로 중복 검증.
+
+### 11.5 TenantFormModal
+```typescript
+interface TenantFormProps {
+  initialValue?: Tenant;          // 수정 모드
+  onSubmit: (data: TenantInput) => Promise<void>;
+  onCancel: () => void;
+}
+interface TenantInput {
+  customerName: string;
+  customerType: 'CORP'|'PERSONAL'|'INTERNAL'|'GROUP';
+  bizRegNo?: string; corpRegNo?: string;
+  ceoName?: string; industry?: string;
+  status: 'ACTIVE'|'DORMANT'|'TERMINATED'|'SUSPENDED';
+  joinedAt: string; terminatedAt?: string;
+  slug: string;                   // SlugInput으로 자동/수정
+  admin: { name: string; dept: string; title: string; phone: string; email: string };
+}
+```
+
+### 11.6 ContractFormModal
+13개 속성 폼. 정산주기·세금적용방식·결제조건·계약유형은 RadioGroup, 위약금/할인/크레딧은 TextArea, SLA는 Switch.
+
+### 11.7 CloudAccountTree
+```typescript
+interface CloudAccountTreeProps {
+  contractId: number;
+  cloudAccounts: CloudAccountWithSubs[];
+  editable: boolean;              // TENANT_ADMIN: true
+  onAddPayer: () => void;
+  onAddSubAccount: (cloudAccountId: number) => void;
+  onEdit: (node) => void;
+}
+```
+계약 상세 화면에서 Payer→SubAccount 트리, 노드별 effective_from/to 표시.
+
+### 11.8 TenantPayerSelector (SYS_OPS 업로드용)
+```typescript
+interface TenantPayerSelectorProps {
+  detectedPayerId?: string;       // 파일명/메타에서 추출
+  onSelect: (cloudAccountId: number) => void;
+}
+```
+탐지된 Payer가 있으면 자동 선택, 없거나 미등록이면 검색 가능 드롭다운으로 fallback.
+
+### 11.9 ScopeMatrix
+```typescript
+interface ScopeMatrixProps {
+  users: TenantUser[];
+  subAccounts: SubAccountGrouped[];   // 계약별 그룹핑
+  scopes: TenantUserScope[];
+  onToggle: (userId: number, subAccountId: number, can: ScopePerm) => void;
+}
+```
+행=사용자, 열=SubAccount(상위 계약/Payer 헤더 그룹). 셀에 can_view/can_subscribe 체크박스.
+
+### 11.10 MixedCurrencyBadge
+"전체" 컨텍스트에서 다중 통화 합산 시 "혼합 통화 — KRW 환산 기준 2026-04-15" 노란색 배지.
+
+### 11.11 MaskedSumIndicator
+"전체 합계 1.2억원 / 가시 합계 8천만원 (35% 마스킹됨)" 형태 보조 텍스트, 클릭 시 권한 없는 SubAccount 개수 안내 toast.
+
+### 11.12 AuditLogTable
+AG Grid 기반. 컬럼: 시각/사용자/액션/대상/IP/상세(확장). 가상스크롤, CSV 내보내기 버튼.
+
+### 11.13 ApprovalInbox (placeholder)
+"승인 기능은 향후 제공됩니다 (티켓 시스템 연계 예정)" EmptyState. APPROVAL_REQUEST 테이블에 데이터가 있으면 목록 표시 가능하도록 구조만 마련.
+
+---
+
+*본 문서는 TRD v1.1, QA 회귀(DQA-001~009), 원본 CLOUD-REQ-001, REG-002(OPEN-009~017) 기반으로 작성되었습니다.*

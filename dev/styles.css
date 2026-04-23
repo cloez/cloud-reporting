@@ -75,6 +75,14 @@
   padding: 0;
 }
 
+html {
+  /* 페이지 전환 시 세로 스크롤바 유무로 인한 가로 폭 변동(=GNB 흔들림) 방지
+     - scrollbar-gutter: 최신 브라우저에서 스크롤바 자리를 항상 예약
+     - overflow-y: scroll: 구형 브라우저 폴백 (스크롤바 상시 표시) */
+  scrollbar-gutter: stable;
+  overflow-y: scroll;
+}
+
 html, body {
   font-family: var(--font-family-sans);
   font-size: var(--font-size-base);
@@ -356,20 +364,30 @@ a:hover { text-decoration: underline; }
   border: 1px solid var(--sh-gray-border);
 }
 
-/* GNB 2행 — 탭 */
+/* GNB 2행 — 탭 + 우측 셀렉터 */
 .gnb-row2 {
   height: var(--gnb-row2-height);
   background: var(--sh-white);
   border-bottom: 1px solid var(--sh-gray-border);
+  display: flex;
+  align-items: stretch;
+  max-width: var(--content-max-width);
+  margin: 0 auto;
+  padding: 0 var(--spacing-lg);
+}
+
+/* 2행 우측 영역 (계약 셀렉터·마스킹 배지 등) */
+.gnb-row2-right {
+  display: flex;
+  align-items: center;
+  margin-left: auto;
+  flex-shrink: 0;
 }
 
 .gnb-tabs {
   display: flex;
   align-items: stretch;
   height: 100%;
-  max-width: var(--content-max-width);
-  margin: 0 auto;
-  padding: 0 var(--spacing-lg);
 }
 
 .gnb-tab {
@@ -1803,4 +1821,466 @@ a:hover { text-decoration: underline; }
   opacity: 0.5;
   text-decoration: line-through;
   background-color: #FFF1F0 !important;
+}
+
+/* 감사 로그 화면 툴바 */
+.audit-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 16px;
+  gap: 12px;
+  border-bottom: 1px solid var(--sh-gray-200);
+  flex-wrap: wrap;
+}
+.audit-toolbar-left {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex: 1;
+  flex-wrap: wrap;
+}
+.audit-field {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--sh-dark-secondary);
+}
+.audit-field input[type="date"] {
+  padding: 6px 10px;
+  border: 1px solid var(--sh-gray-300);
+  border-radius: 4px;
+  font-size: 13px;
+  font-family: inherit;
+  color: var(--sh-dark);
+  background: #fff;
+}
+.audit-field input[type="date"]:focus {
+  outline: none;
+  border-color: var(--sh-blue-500);
+}
+
+/* 사용자 리사이즈 가능한 그리드 래퍼 — 그리드+툴바를 묶고 카드 우하단에 핸들 표시 */
+/* 카드 패딩(24px)을 상쇄하도록 음수 마진을 주어 리사이즈 핸들이 카드 모서리에 완전히 붙게 한다 */
+.grid-resize-wrap {
+  position: relative;
+  resize: vertical;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  min-height: 260px;
+  margin-right: -24px;
+  margin-bottom: -24px;
+  padding-right: 24px;
+  padding-bottom: 24px;
+}
+.grid-resize-wrap > .grid-resize-child {
+  flex: 1 1 auto;
+  min-height: 0;
+  height: auto !important;
+}
+/* 리사이즈 핸들 힌트 — 카드 우하단 모서리에 딱 3줄 표시 (장식용, pointer-events 없음) */
+.grid-resize-wrap::after {
+  content: "";
+  position: absolute;
+  right: 3px;
+  bottom: 3px;
+  width: 10px;
+  height: 10px;
+  pointer-events: none;
+  background-image: linear-gradient(
+    135deg,
+    transparent 30%, #8A94A6 30%, #8A94A6 40%,
+    transparent 40%, transparent 55%, #8A94A6 55%, #8A94A6 65%,
+    transparent 65%, transparent 80%, #8A94A6 80%, #8A94A6 90%,
+    transparent 90%
+  );
+  opacity: 0.85;
+}
+
+/* PDF 인쇄용 오프스크린 영역 — A4 크기, 실제 표시되지 않음 */
+.pdf-print-area {
+  position: fixed;
+  left: -10000px;
+  top: 0;
+  width: 794px; /* A4 width @ 96dpi */
+  padding: 32px;
+  background: #fff;
+  color: #1a1a1a;
+  font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, sans-serif;
+  font-size: 12px;
+  line-height: 1.5;
+  box-sizing: border-box;
+}
+.pdf-print-area .pdf-header {
+  border-bottom: 2px solid #0046FF;
+  padding-bottom: 10px;
+  margin-bottom: 14px;
+}
+.pdf-print-area .pdf-title {
+  font-size: 20px;
+  font-weight: 700;
+  color: #0046FF;
+}
+.pdf-print-area .pdf-subtitle {
+  font-size: 12px;
+  color: #4D4D4D;
+  margin-top: 4px;
+}
+.pdf-print-area .pdf-meta {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 14px;
+}
+.pdf-print-area .pdf-meta th,
+.pdf-print-area .pdf-meta td {
+  border: 1px solid #D9DCE1;
+  padding: 6px 10px;
+  font-size: 11px;
+  text-align: left;
+  vertical-align: middle;
+}
+.pdf-print-area .pdf-meta th {
+  background: #F4F6FA;
+  font-weight: 600;
+  width: 90px;
+}
+.pdf-print-area .pdf-chart {
+  margin: 10px 0 16px;
+  text-align: center;
+}
+.pdf-print-area .pdf-chart img {
+  max-width: 100%;
+  height: auto;
+}
+.pdf-print-area .pdf-section-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: #002D85;
+  margin: 6px 0 8px;
+  padding-left: 6px;
+  border-left: 3px solid #0046FF;
+}
+.pdf-print-area .pdf-data {
+  width: 100%;
+  border-collapse: collapse;
+}
+.pdf-print-area .pdf-data th,
+.pdf-print-area .pdf-data td {
+  border: 1px solid #D9DCE1;
+  padding: 6px 10px;
+  font-size: 11px;
+}
+.pdf-print-area .pdf-data th {
+  background: #E2E8F0;
+  font-weight: 600;
+  text-align: center;
+}
+.pdf-print-area .pdf-footer {
+  margin-top: 18px;
+  padding-top: 8px;
+  border-top: 1px solid #D9DCE1;
+  font-size: 10px;
+  color: #999;
+  text-align: right;
+}
+
+/* ════════════════════════════════════════════
+   v2 — 멀티테넌트 / 3트랙 / GNB 변형 / 콘솔 홈
+   (디자인 토큰 v3.0 보존, 변형은 색·배지로 구분)
+   ════════════════════════════════════════════ */
+
+/* GNB 변형 식별 — 시스템(어두운 톤), 테넌트관리(브랜드 보라), 테넌트사용자(브랜드 블루) */
+.gnb.gnb-system {
+  background: #0B1A3A;
+  color: #fff;
+}
+.gnb.gnb-system .gnb-row1,
+.gnb.gnb-system .gnb-row2 {
+  background: transparent;
+}
+.gnb.gnb-system .gnb-tab,
+.gnb.gnb-system .gnb-logo-main {
+  color: #fff;
+}
+.gnb.gnb-system .gnb-tab.active {
+  background: rgba(255,255,255,.12);
+  color: #fff;
+}
+/* 시스템 GNB 2행 내 테넌트 셀렉터 — 어두운 배경 맞춤 */
+.gnb.gnb-system .gnb-tenant-selector {
+  background: rgba(255,255,255,.08);
+  border-color: rgba(255,255,255,.2);
+}
+.gnb.gnb-system .gnb-contract-label {
+  color: rgba(255,255,255,.7);
+}
+.gnb.gnb-system .gnb-tenant-selector select {
+  background: rgba(255,255,255,.12);
+  color: #fff;
+  border-color: rgba(255,255,255,.25);
+}
+/* 드롭다운 펼쳤을 때 옵션은 OS 네이티브 — 밝은 배경 + 어두운 글자 강제 */
+.gnb.gnb-system .gnb-tenant-selector select option {
+  background: #fff;
+  color: #1A1F2C;
+}
+.gnb.gnb-tenant-admin {
+  background: linear-gradient(180deg, #FFFFFF 0%, #F4F0FF 100%);
+}
+.gnb.gnb-tenant-user {
+  background: #FFFFFF;
+}
+
+/* GNB 우측 영역 사용자 텍스트 가독성 — 시스템 어두운 톤 보정 */
+.gnb.gnb-system .gnb-user-name,
+.gnb.gnb-system .gnb-user-role { color: #fff; }
+.gnb.gnb-system .gnb-icon-btn { color: #fff; }
+
+/* GNB 로고 옆 컨텍스트 배지 */
+.gnb-logo-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  margin-left: 8px;
+  border-radius: var(--radius-sm, 4px);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .02em;
+  vertical-align: 2px;
+}
+.gnb-logo-badge.sys { background: rgba(255,255,255,.18); color: #fff; }
+.gnb-logo-badge.tenant { background: var(--sh-blue-primary); color: #fff; }
+.gnb.gnb-tenant-admin .gnb-logo-badge.tenant { background: #722ED1; }
+
+/* 1행 테넌트명 (일반 사용자) */
+.gnb-tenant-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--sh-dark-primary, #1A1F2C);
+  margin-left: 12px;
+  white-space: nowrap;
+}
+
+/* 테넌트 셀렉터 (SYS_OPS용) */
+.gnb-tenant-selector {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: 12px;
+  padding: 4px 10px;
+  background: rgba(0, 70, 255, .04);
+  border: 1px solid rgba(0, 70, 255, .12);
+  border-radius: var(--radius-md, 6px);
+  flex-shrink: 0;
+}
+.gnb-tenant-selector select {
+  height: 28px;
+  font-size: 13px;
+  border: 1px solid #CDD3DD;
+  border-radius: 4px;
+  background: #fff;
+  padding: 0 6px;
+  color: var(--sh-dark-primary, #1A1F2C);
+  max-width: 240px;
+}
+
+/* 컨트랙트 셀렉터 */
+.gnb-contract-selector {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: 12px;
+  padding: 4px 10px;
+  background: rgba(0, 70, 255, .04);
+  border: 1px solid rgba(0, 70, 255, .12);
+  border-radius: var(--radius-md, 6px);
+  flex-shrink: 0;
+}
+.gnb-contract-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--sh-dark-secondary, #5A6677);
+}
+.gnb-contract-selector select {
+  height: 28px;
+  font-size: 13px;
+  border: 1px solid #CDD3DD;
+  border-radius: 4px;
+  background: #fff;
+  padding: 0 6px;
+  color: var(--sh-dark-primary, #1A1F2C);
+  max-width: 380px;
+}
+.gnb-mixed-currency-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-size: 11px;
+  font-weight: 700;
+  background: #FFF3E0;
+  color: #B45309;
+  border: 1px solid #FCD9A8;
+}
+
+/* 마스킹 합계 표시 */
+.gnb-masked-sum {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-size: 11px;
+  font-weight: 600;
+}
+.gnb-masked-sum.full {
+  background: rgba(0, 192, 127, .12);
+  color: #006B45;
+}
+.gnb-masked-sum.partial {
+  background: rgba(255, 102, 0, .12);
+  color: #C04A00;
+  border: 1px dashed #FCC8A8;
+}
+
+/* 페이지 타이틀 옆 테넌트 배지 */
+.page-title-badge {
+  display: inline-block;
+  margin-left: 12px;
+  padding: 2px 10px;
+  font-size: 13px;
+  font-weight: 700;
+  border-radius: 12px;
+  background: rgba(0, 70, 255, .08);
+  color: var(--sh-blue-primary, #0046FF);
+  vertical-align: 6px;
+}
+
+/* 콘솔 홈 카드 그리드 */
+.console-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 16px;
+}
+.console-card {
+  display: block;
+  padding: 18px 20px;
+  background: #fff;
+  border: 1px solid #E2E8F0;
+  border-radius: 8px;
+  text-decoration: none;
+  color: inherit;
+  transition: transform .12s ease, box-shadow .12s ease, border-color .12s ease;
+}
+.console-card:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0,0,0,.06);
+  border-color: var(--sh-blue-primary, #0046FF);
+}
+.console-card-title {
+  font-size: 13px;
+  color: var(--sh-dark-secondary, #5A6677);
+  font-weight: 600;
+  margin-bottom: 6px;
+}
+.console-card-value {
+  font-size: 28px;
+  font-weight: 800;
+  color: var(--sh-dark-primary, #1A1F2C);
+  letter-spacing: -0.02em;
+}
+.console-card-sub {
+  margin-top: 4px;
+  font-size: 12px;
+  color: var(--sh-dark-tertiary, #828B98);
+}
+
+/* 빠른 진입 버튼 행 */
+.quick-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+/* 로그인 변형 식별 + 컨텍스트 배지 */
+.login-variant-system .login-card { border-top: 4px solid #0B1A3A; }
+.login-variant-tenant .login-card { border-top: 4px solid var(--sh-blue-primary, #0046FF); }
+.login-ctx-row {
+  margin-top: 8px;
+  text-align: center;
+}
+.login-ctx-badge {
+  display: inline-block;
+  padding: 4px 12px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 700;
+}
+.login-ctx-badge.sys { background: #0B1A3A; color: #fff; }
+.login-ctx-badge.tenant { background: var(--sh-blue-primary, #0046FF); color: #fff; }
+
+.login-tenant-links {
+  margin-top: 16px;
+  padding: 12px 14px;
+  background: #F7F9FC;
+  border-radius: 8px;
+  text-align: center;
+}
+.login-tenant-links-title {
+  font-size: 12px;
+  color: var(--sh-dark-secondary, #5A6677);
+  margin-bottom: 8px;
+}
+.login-tenant-links-row {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.login-tenant-link {
+  display: inline-block;
+  padding: 4px 10px;
+  font-size: 12px;
+  text-decoration: none;
+  border: 1px solid #CDD3DD;
+  border-radius: 14px;
+  color: var(--sh-blue-primary, #0046FF);
+  font-weight: 600;
+}
+.login-tenant-link:hover {
+  background: var(--sh-blue-primary, #0046FF);
+  color: #fff;
+  border-color: var(--sh-blue-primary, #0046FF);
+}
+.login-tenant-link.sys {
+  color: #0B1A3A;
+  border-color: #0B1A3A;
+}
+.login-tenant-link.sys:hover {
+  background: #0B1A3A;
+}
+
+/* 역할 전환 메뉴 헤더 */
+.role-switch-head {
+  padding: 8px 12px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .04em;
+  color: var(--sh-dark-tertiary, #828B98);
+  text-transform: uppercase;
+  border-bottom: 1px solid #E2E8F0;
+  background: #F7F9FC;
+}
+
+/* 그리드 툴바 (v2 신규 화면용) */
+/* 좌우 24px 패딩 — 카드 콘텐츠 패딩과 동일하게 정렬 (Excel 버튼·페이징·정보 텍스트가 카드 모서리에 붙는 현상 방지) */
+.grid-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 24px 12px;
+}
+.grid-toolbar .grid-info {
+  font-size: 13px;
+  color: var(--sh-dark-secondary, #5A6677);
 }
